@@ -1,8 +1,9 @@
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
+
 import pytest
 from faker import Faker
 
-from app.models import Membership, Organization, Team, TeamMember, User
+from app.models import Membership, User
 from app.security import JWT_AUDIENCE_APP, generate_jwt_token, hash_password
 from app.services.orgs import OrganizationService
 from app.services.teams import TeamService
@@ -11,7 +12,7 @@ fake = Faker()
 
 
 def get_upcoming_monday() -> date:
-    today = date.today()
+    today = datetime.now(tz=UTC).date()
     days_ahead = (0 - today.weekday()) % 7
     if days_ahead == 0:
         days_ahead = 7
@@ -38,7 +39,7 @@ async def create_user_and_token(session_factory, first_name="Test", last_name="U
 @pytest.mark.asyncio
 async def test_plan_validation_rules(async_client, session_factory):
     """Test plan requires a Monday date and exactly one main task with why_it_matters."""
-    owner, token = await create_user_and_token(session_factory, first_name="Owner")
+    _owner, token = await create_user_and_token(session_factory, first_name="Owner")
     async_client.cookies.set("access_token", f"Bearer {token}")
 
     # Create Org and Team
@@ -314,8 +315,8 @@ async def test_team_week_overview_and_send_back(async_client, session_factory):
 @pytest.mark.asyncio
 async def test_cross_org_plan_access_returns_404(async_client, session_factory):
     """Anti-Oracle Test: Accessing a plan belonging to another organization returns 404."""
-    user_a, token_a = await create_user_and_token(session_factory, first_name="Alice")
-    user_b, token_b = await create_user_and_token(session_factory, first_name="Bob")
+    _user_a, token_a = await create_user_and_token(session_factory, first_name="Alice")
+    _user_b, token_b = await create_user_and_token(session_factory, first_name="Bob")
 
     monday = get_upcoming_monday()
 
@@ -343,3 +344,63 @@ async def test_cross_org_plan_access_returns_404(async_client, session_factory):
     # Bob probes Alice's plan via Org B's URL -> 404
     probe_resp = await async_client.get(f"/app/orgs/{org_b['id']}/plans/{plan_a['id']}")
     assert probe_resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_plan_history_and_filters(async_client, session_factory):
+    """Test GET /orgs/{org_id}/plans/history and query parameter filtering."""
+    user, token = await create_user_and_token(session_factory, first_name="History", last_name="User")
+    async_client.cookies.set("access_token", f"Bearer {token}")
+
+    monday1 = get_upcoming_monday()
+    monday2 = monday1 + timedelta(days=7)
+
+    org = (await async_client.post("/app/orgs", json={"name": "History Org"})).json()
+    org_id = org["id"]
+    team = (await async_client.post(f"/app/orgs/{org_id}/teams", json={"name": "Eng"})).json()
+    team_id = team["id"]
+
+    # Create two plans for different weeks
+    await async_client.post(
+        f"/app/orgs/{org_id}/plans",
+        json={
+            "team_id": team_id,
+            "week_start_date": monday1.isoformat(),
+            "tasks": [{"category": "main", "title": "Week 1 Feature", "why_it_matters": "Launch MVP"}],
+        },
+    )
+    await async_client.post(
+        f"/app/orgs/{org_id}/plans",
+        json={
+            "team_id": team_id,
+            "week_start_date": monday2.isoformat(),
+            "tasks": [{"category": "main", "title": "Week 2 Scaling", "why_it_matters": "Performance"}],
+        },
+    )
+
+    # 1. Fetch full history for organization
+    history_resp = await async_client.get(f"/app/orgs/{org_id}/plans/history")
+    assert history_resp.status_code == 200
+    plans = history_resp.json()
+    assert len(plans) == 2
+
+    # 2. Filter by user_id
+    user_filtered = await async_client.get(
+        f"/app/orgs/{org_id}/plans/history?user_id={user.id}"
+    )
+    assert user_filtered.status_code == 200
+    assert len(user_filtered.json()) == 2
+
+    # 3. Filter by team_id
+    team_filtered = await async_client.get(
+        f"/app/orgs/{org_id}/plans/history?team_id={team_id}"
+    )
+    assert team_filtered.status_code == 200
+    assert len(team_filtered.json()) == 2
+
+    # 4. Fetch specific plan by ID
+    plan_id = plans[0]["id"]
+    single_resp = await async_client.get(f"/app/orgs/{org_id}/plans/{plan_id}")
+    assert single_resp.status_code == 200
+    assert single_resp.json()["id"] == plan_id
+

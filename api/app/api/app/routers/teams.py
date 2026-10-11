@@ -1,11 +1,10 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, status
 
 from app.api.app.access import (
     RequireOrgAdmin,
     RequireOrgMember,
-    TenantContext,
 )
 from app.api.app.schemas import (
     TeamAddMemberRequest,

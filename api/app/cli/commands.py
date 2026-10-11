@@ -1,6 +1,7 @@
 import asyncio
 import inspect
 import secrets
+from datetime import UTC
 from functools import partial, wraps
 
 from pydantic import ValidationError
@@ -105,7 +106,7 @@ async def create_user(
 @cli.command()
 async def seed():
     """Seed the database with sample organizations, teams, users, and weekly plans."""
-    from datetime import date, datetime, timedelta, timezone
+    from datetime import date, datetime, timedelta
 
     from app.models import Membership, Organization, Plan, Task, Team, TeamMember
 
@@ -211,7 +212,7 @@ async def seed():
             )
         ).scalars().first()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if not plan:
             plan = Plan(
                 organization_id=org_id,
@@ -273,7 +274,7 @@ async def seed():
         await session.flush()
 
     # --- Create Users ---
-    staff_user = await get_or_create_user("staff@weeks.sync", "Platform", "Staff", is_admin=True)
+    _staff_user = await get_or_create_user("staff@weeks.sync", "Platform", "Staff", is_admin=True)
 
     # Acme Corp users
     acme_owner = await get_or_create_user("owner@acme.com", "Alice", "Vance", is_admin=False)
@@ -307,7 +308,7 @@ async def seed():
     await ensure_team_member(globex_dev.id, globex_member.id)
 
     # --- Calculate Monday dates ---
-    today = date.today()
+    today = datetime.now(tz=UTC).date()
     this_monday = today - timedelta(days=today.weekday())
     last_monday = this_monday - timedelta(days=7)
     two_weeks_ago = this_monday - timedelta(days=14)
@@ -444,4 +445,25 @@ async def seed():
     print("    Team Lead: lead@globex.com")
     print("    Member:    member@globex.com")
     print("=" * 62 + "\n")
+
+
+@cli.command()
+def export_openapi():
+    """Export OpenAPI specs to JSON files for app and internal frontends."""
+    import json
+    from pathlib import Path
+
+    from app.main import app_api, internal_api
+
+    root_dir = Path(__file__).resolve().parent.parent.parent.parent
+    app_target = root_dir / "app" / "openapi.json"
+    internal_target = root_dir / "internal" / "openapi.json"
+
+    with open(app_target, "w", encoding="utf-8") as f:
+        json.dump(app_api.openapi(), f, indent=2)
+    with open(internal_target, "w", encoding="utf-8") as f:
+        json.dump(internal_api.openapi(), f, indent=2)
+
+    print(f"Exported app OpenAPI spec to: {app_target}")
+    print(f"Exported internal OpenAPI spec to: {internal_target}")
 

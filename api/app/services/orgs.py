@@ -4,9 +4,8 @@ from collections.abc import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.exceptions import APIException, ConflictException, ResourceNotFoundException
+from app.exceptions import APIException, ResourceNotFoundException
 from app.models import Membership, Organization, User
 
 
@@ -152,13 +151,6 @@ class OrganizationService:
 
         # Do not allow removing the last owner
         if membership.org_role == "owner":
-            owner_count = await self.session.scalar(
-                select(Membership).where(
-                    Membership.organization_id == org_id,
-                    Membership.org_role == "owner",
-                )
-            )
-            # count query
             owners = (
                 await self.session.execute(
                     select(Membership).where(

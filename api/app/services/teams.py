@@ -1,12 +1,16 @@
-from collections.abc import Sequence
 import uuid
+from collections.abc import Sequence
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.exceptions import ConflictException, ResourceNotFoundException, ValidationException
-from app.models import Membership, Team, TeamMember, User
+from app.exceptions import (
+    ConflictException,
+    ResourceNotFoundException,
+    ValidationException,
+)
+from app.models import Membership, Team, TeamMember
 
 
 class TeamService:

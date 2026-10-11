@@ -1,11 +1,10 @@
-from datetime import date
 import uuid
+from datetime import date
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, status
 
 from app.api.app.access import (
     RequireOrgMember,
-    TenantContext,
 )
 from app.api.app.schemas import (
     PlanCreateRequest,
@@ -115,8 +114,8 @@ async def list_plan_history(
     org_id: uuid.UUID,
     tenant: RequireOrgMember,
     session: DBSession,
-    user_id: uuid.UUID | None = Query(None),
-    team_id: uuid.UUID | None = Query(None),
+    user_id: uuid.UUID | None = None,
+    team_id: uuid.UUID | None = None,
 ) -> list[PlanResponse]:
     """List historical plans for an organization, optionally filtered by user or team."""
     service = PlanService(session)

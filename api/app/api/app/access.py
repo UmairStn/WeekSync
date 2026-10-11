@@ -1,6 +1,6 @@
+import uuid
 from dataclasses import dataclass
 from typing import Annotated
-import uuid
 
 import jwt
 from fastapi import Depends, status

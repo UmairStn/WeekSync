@@ -1,5 +1,5 @@
-from datetime import date, datetime, timezone
 import uuid
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -13,7 +13,7 @@ from app.exceptions import (
     ResourceNotFoundException,
     ValidationException,
 )
-from app.models import Membership, Plan, Task, Team, TeamMember, User
+from app.models import Plan, Task, Team, TeamMember
 
 
 class PlanService:
@@ -181,10 +181,7 @@ class PlanService:
         team = await self.session.scalar(
             select(Team).where(Team.id == team_id, Team.organization_id == org_id)
         )
-        if team and team.lead_user_id == user_id:
-            return True
-
-        return False
+        return bool(team and team.lead_user_id == user_id)
 
     async def approve_plan(
         self,
@@ -216,7 +213,7 @@ class PlanService:
 
         plan.status = "approved"
         plan.reviewed_by_user_id = reviewer_user_id
-        plan.reviewed_at = datetime.now(timezone.utc)
+        plan.reviewed_at = datetime.now(UTC)
         plan.review_comment = None  # Clear previous rejection comment if any
         await self.session.flush()
         return plan
@@ -253,7 +250,7 @@ class PlanService:
         plan.status = "draft"
         plan.review_comment = comment.strip()
         plan.reviewed_by_user_id = reviewer_user_id
-        plan.reviewed_at = datetime.now(timezone.utc)
+        plan.reviewed_at = datetime.now(UTC)
         await self.session.flush()
         return plan
 

@@ -74,3 +74,18 @@
   2. *Live Gemini API calls in CI/tests:* Requires API key, incurs cost, fails on network drops.
   3. *Pydantic AI TestModel (Selected):* Deterministic, zero network requirement, allows `uv run pytest` to execute 100% offline.
 - **Why:** Mandated by RULES.md § 5 ("uv run pytest must pass with no key and no network").
+
+---
+
+## Decision 7: Additive Core Extensions (Models, Access, and Meta Router)
+- **Date:** 2026-10-11
+- **Status:** Approved
+- **Decision:** Preserve all existing Launchbase core files and extend them strictly through additive models and dependencies:
+  1. `api/app/models.py`: Preserved `User` model, appended relational tables (`Organization`, `Membership`, `Team`, `TeamMember`, `Invite`, `Plan`, `Task`, `AICallLog`).
+  2. `api/app/api/app/access.py`: Preserved `get_current_http_user` and cookie/header auth, appended `TenantContext`, `get_tenant_context` dependency with Anti-Oracle 404 security.
+  3. `api/app/api/app/routers/meta.py`: Appended `POST /app/signup` endpoint that reuses existing password hashing and token generation.
+- **Options Considered:**
+  1. *Forking or rewriting access/auth flow:* Violates Launchbase core preservation rule.
+  2. *Separate tenancy middleware:* Complicated in async ASGI context, harder to inject database session.
+  3. *Additive Dependency Injection (Selected):* Preserves 100% backward compatibility with Launchbase user tests while securing organization boundaries.
+- **Why:** Complies with RULES.md § 1 ("Launchbase core: extend, never replace") and AGENTS.md decision logging requirement.

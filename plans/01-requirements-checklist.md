@@ -15,56 +15,56 @@
 - [ ] All three front ends tell the same brand story
 
 ## 2. Auth & Organizations
-- [ ] Sign-up endpoint added (email + password, built on existing auth code)
-- [ ] New user can create an organization after sign-up
-- [ ] New user can join an organization via invite link
-- [ ] Copyable invite link generation (no email sending)
-- [ ] Org roles: owner, admin, member
-- [ ] Owners and admins can manage members and settings
+- [x] Sign-up endpoint added (email + password, built on existing auth code)
+- [x] New user can create an organization after sign-up
+- [x] New user can join an organization via invite link
+- [x] Copyable invite link generation (no email sending)
+- [x] Org roles: owner, admin, member
+- [x] Owners and admins can manage members and settings
 - [ ] Members can plan their own weeks
 - [ ] Sign-up page in app/
 
 ## 3. Teams
-- [ ] Admins can create teams inside an org
-- [ ] Admins can add members to teams
-- [ ] Admins can assign a team lead
-- [ ] A user can belong to more than one team
+- [x] Admins can create teams inside an org
+- [x] Admins can add members to teams
+- [x] Admins can assign a team lead
+- [x] A user can belong to more than one team
 
 ## 4. Plans
-- [ ] Plan keyed by week's Monday date
-- [ ] Plan has: one main task (what to ship + why it matters)
-- [ ] Plan has: sub-goals (smaller tasks)
-- [ ] Plan has: go-to-market goals
-- [ ] Every item is a separate task with own status (tickable)
-- [ ] Plan status flow: draft → submitted → approved → done
-- [ ] Team lead can approve a plan
-- [ ] Team lead can send back a plan with a comment
-- [ ] Tasks can be ticked done during the week
-- [ ] Member can mark whether the main task shipped at week end
+- [x] Plan keyed by week's Monday date
+- [x] Plan has: one main task (what to ship + why it matters)
+- [x] Plan has: sub-goals (smaller tasks)
+- [x] Plan has: go-to-market goals
+- [x] Every item is a separate task with own status (tickable)
+- [x] Plan status flow: draft → submitted → approved → done
+- [x] Team lead can approve a plan
+- [x] Team lead can send back a plan with a comment
+- [x] Tasks can be ticked done during the week
+- [x] Member can mark whether the main task shipped at week end
 
 ## 5. Team's Week
-- [ ] Lead picks a week and sees every member at a glance
-- [ ] Shows: who submitted, what's approved, tasks done, goal shipped
-- [ ] History view shows past weeks
+- [x] Lead picks a week and sees every member at a glance
+- [x] Shows: who submitted, what's approved, tasks done, goal shipped
+- [x] History view shows past weeks
 
 ## 6. Tenancy (3-star weight)
-- [ ] User in one org cannot read another org's data
-- [ ] Member cannot act as admin
-- [ ] Non-lead cannot approve a plan
-- [ ] Every endpoint scopes by org and role
-- [ ] Cross-org access returns 404 (never leaks object existence)
-- [ ] Suspended orgs lock members out
-- [ ] Tests cover: other org's ID
-- [ ] Tests cover: member acting as admin
-- [ ] Tests cover: non-lead approving
-- [ ] Tests cover: suspended org
+- [x] User in one org cannot read another org's data
+- [x] Member cannot act as admin
+- [x] Non-lead cannot approve a plan
+- [x] Every endpoint scopes by org and role
+- [x] Cross-org access returns 404 (never leaks object existence)
+- [x] Suspended orgs lock members out
+- [x] Tests cover: other org's ID
+- [x] Tests cover: member acting as admin
+- [x] Tests cover: non-lead approving
+- [x] Tests cover: suspended org
 
 ## 7. Seeding
-- [ ] `uv run manage.py seed` command exists
-- [ ] Creates at least 2 organizations
-- [ ] Creates teams with members in each role
-- [ ] Creates several weeks of plans (some shipped, some not)
-- [ ] Prints demo logins: member, team lead, org owner, staff
+- [x] `uv run manage.py seed` command exists
+- [x] Creates at least 2 organizations
+- [x] Creates teams with members in each role
+- [x] Creates several weeks of plans (some shipped, some not)
+- [x] Prints demo logins: member, team lead, org owner, staff
 
 ## 8. UX Bar
 - [ ] Loading states while model thinks

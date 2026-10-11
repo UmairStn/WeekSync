@@ -25,11 +25,70 @@
   - Created `plans/02-data-model-and-tenancy.md`
   - Created `plans/03-decisions.md`
   - Created `plans/04-ai-design.md`
-  - Created `plans/05-brand.md`
   - Created `plans/06-cut-list.md`
   - Created `plans/07-change-log.md`
 - Why: Phase 1 planning deliverables and tracking infrastructure.
-- How it works: Lays out the comprehensive 14-phase implementation plan, the granular verification checklist, the complete relational multi-tenant database schema, explicit decision rationale, AI prompt contracts, brand identity candidates, and scope boundaries.
+- How it works: Lays out the comprehensive 14-phase implementation plan, the granular verification checklist, the complete relational multi-tenant database schema, explicit decision rationale, AI prompt contracts, and scope boundaries.
 - Core file touched? no
 - How to verify: Check that all documents in `plans/` exist and align with assessment requirements.
 - Commit: docs: complete initial architecture specifications and plans
+
+---
+
+## [2026-10-11 20:30] [Antigravity IDE] Phase 3: Multi-Tenant Data Models & Alembic Migration
+- What changed:
+  - Edited `api/app/models.py` (added Organization, Membership, Team, TeamMember, Invite, Plan, Task, AICallLog)
+  - Created `api/migrations/versions/e8acb20d769e_create_multi_tenant_tables.py`
+- Why: Phase 3 (Data Model & Schema Migration) per 00-master-plan.md.
+- How it works: Extends SQLAlchemy models with organization-scoped entities, linking users via memberships and teams, storing Monday-keyed plans with task breakdowns, and logging AI calls. Applied cleanly via Alembic revision `e8acb20d769e`.
+- Core file touched? yes (logged in Decision 7 in plans/03-decisions.md)
+- How to verify: `uv run alembic upgrade head` and `uv run pytest -v` (12 passed).
+- Commit: feat(db): create multi-tenant tables and alembic migration
+
+---
+
+## [2026-10-11 21:12] [Antigravity IDE] Phase 4: Auth & Organization Tenancy API
+- What changed:
+  - Edited `api/app/api/app/schemas.py` (added SignupRequest, Org schemas, Member schemas, Invite schemas)
+  - Edited `api/app/api/app/access.py` (added TenantContext, get_tenant_context, role guard dependencies)
+  - Created `api/app/services/orgs.py` (OrganizationService for org & member management)
+  - Created `api/app/services/invites.py` (InviteService for secure token generation and joins)
+  - Edited `api/app/api/app/routers/meta.py` (added POST /app/signup)
+  - Created `api/app/api/app/routers/orgs.py` (orgs, members, and invites endpoints)
+  - Edited `api/app/api/app/router.py` (registered orgs router under /app)
+  - Created `api/tests/api/app/test_auth.py` (signup, duplicate email, invite join tests)
+  - Created `api/tests/api/app/test_orgs.py` (org CRUD, anti-oracle 404, role authorization, suspended org lockout)
+- Why: Phase 4 (Auth & Organization Tenancy) serving Checklist § 2 and § 6.
+- How it works: Provides sign-up issuing HttpOnly session cookies, allows org creation with automatic owner assignment, handles join tokens without external email dependencies, and enforces strict tenant boundary isolation with Anti-Oracle 404 responses for cross-tenant probes.
+- Core file touched? yes (logged in Decision 7 in plans/03-decisions.md)
+- How to verify: `cd ~/WeekSync/api && uv run pytest -v` (21 passed).
+- Commit: feat(api): implement auth signup, org management, and anti-oracle tenancy
+
+---
+
+## [2026-10-11 21:24] [Antigravity IDE] Phase 5: Teams & Weekly Plans API
+- What changed:
+  - Edited `api/app/api/app/schemas.py` (added Team schemas, Plan schemas, Task schemas, and TeamWeekResponse)
+  - Created `api/app/services/teams.py` (TeamService for team CRUD, member assignment, and lead management)
+  - Created `api/app/services/plans.py` (PlanService for Monday validation, task breakdowns, approvals, and team weekly rollups)
+  - Created `api/app/api/app/routers/teams.py` (teams and team members endpoints)
+  - Created `api/app/api/app/routers/plans.py` (plans, task ticking, approvals, send-back with comments, outcome shipping, and team week view)
+  - Edited `api/app/api/app/router.py` (registered teams and plans routers)
+  - Created `api/tests/api/app/test_teams.py` (team CRUD, membership, leads, and anti-oracle cross-tenant tests)
+  - Created `api/tests/api/app/test_plans.py` (Monday-date validation, main task validation, review lifecycle, lead approvals, task ticking, goal shipped flag, and anti-oracle tests)
+- Why: Phase 5 (Teams & Plans) serving Checklist § 3, § 4, § 5, and § 6.
+- How it works: Enforces Monday-keyed weekly plans containing a main task with "why it matters", sub-goals, and GTM goals. Provides strict role gates where only assigned team leads (or org admins) can approve or send back plans with comments. Ticks task progress and records week-end outcome. Produces a Team's Week overview aggregating all members' plans and progress.
+- Core file touched? no
+- How to verify: `cd ~/WeekSync/api && uv run pytest -v` (30 passed).
+- Commit: feat(api): implement teams, weekly plans, lead review lifecycle, and team-week rollup
+
+---
+
+## [2026-10-11 21:28] [Antigravity IDE] Phase 6: Seed CLI Command v1
+- What changed:
+  - Edited `api/app/cli/commands.py` (added idempotent `seed` CLI command)
+- Why: Phase 6 (Seed Command v1) serving Checklist § 7.
+- How it works: Provides `uv run manage.py seed` command that creates platform staff, two organizations (`Acme Corp`, `Globex Media`), teams with leads, members in all roles, and several weeks of sample plans (completed/shipped, completed/missed goal, approved in-flight, submitted, draft). Prints demo login credentials for manual UI and API verification.
+- Core file touched? no
+- How to verify: `cd ~/WeekSync/api && uv run manage.py seed`
+- Commit: feat(cli): implement idempotent seed command with sample orgs, teams, and weekly plans

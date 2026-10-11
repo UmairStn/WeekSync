@@ -59,7 +59,7 @@ Every edit to a core file must be minimal, logged in plans/03-decisions.md with 
 - Plan before code. No product code before the human approves the plan.
 - Work in the phase order and timeline defined in plans/00-master-plan.md and plans/10-dev-flow-and-timeline.md. Don't jump ahead to a later phase.
 - Follow the per-phase working loop in plans/10-dev-flow-and-timeline.md.
-- Small commits. The repo must never be left broken at session end.
+- DO NOT automatically run git commit. The human lead reviews and controls commits; agents track all work in the logs/ folder.
 - Tick checklist items only when verified (tests pass or manually checked).
 - Update logs/SESSION_LOG.md at the end of every session.
 - Every change is recorded in plans/07-change-log.md and, if it affects structure, plans/08-codebase-map.md, in the same commit as the change. An unlogged change counts as unfinished work.

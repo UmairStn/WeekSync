@@ -81,17 +81,24 @@ async def test_ai_plan_review_offline_success(async_client, session_factory):
             ],
         }
 
-        resp = await async_client.post(f"/app/orgs/{org_id}/ai/review", json=req_payload)
+        resp = await async_client.post(
+            f"/app/orgs/{org_id}/ai/review", json=req_payload
+        )
         assert resp.status_code == 200
         body = resp.json()
 
-        assert body["overall_assessment"] == "Strong focus on core checkout reliability."
+        assert (
+            body["overall_assessment"] == "Strong focus on core checkout reliability."
+        )
         assert body["ready_to_submit"] is False
         assert body["verdict"] == "adjust"
         assert len(body["findings"]) == 1
         assert body["findings"][0]["task_id"] == sample_task_id
         assert body["findings"][0]["issue_type"] == "vague_activity"
-        assert body["findings"][0]["problem"] == "Describes internal activity rather than checkable outcome."
+        assert (
+            body["findings"][0]["problem"]
+            == "Describes internal activity rather than checkable outcome."
+        )
         assert "Checkout webhook" in body["findings"][0]["suggested_rewrite"]
 
         # Verify tenant telemetry log

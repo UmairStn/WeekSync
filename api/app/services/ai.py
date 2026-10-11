@@ -53,7 +53,9 @@ def get_agent(
     If override_model is provided (e.g. TestModel or FunctionModel in tests), it is used directly.
     Otherwise, uses the configured Gemini model using settings.GOOGLE_API_KEY.
     """
-    active_override = override_model if override_model is not None else TEST_OVERRIDE_MODEL
+    active_override = (
+        override_model if override_model is not None else TEST_OVERRIDE_MODEL
+    )
     if active_override is not None:
         return Agent(
             model=active_override,
@@ -117,7 +119,9 @@ async def log_ai_call(
     return log_entry
 
 
-def _format_plan_for_review(request: PlanReviewRequest, user_name: str | None = None) -> str:
+def _format_plan_for_review(
+    request: PlanReviewRequest, user_name: str | None = None
+) -> str:
     """Transform the plan request into a readable markdown prompt for the agent."""
     lines = [
         f"Week Commencing: {request.week_start_date or 'Current Week'}",
@@ -194,9 +198,9 @@ async def review_plan(
                 prompt_tokens = getattr(usage, "request_tokens", None) or getattr(
                     usage, "prompt_tokens", None
                 )
-                completion_tokens = getattr(
-                    usage, "response_tokens", None
-                ) or getattr(usage, "completion_tokens", None)
+                completion_tokens = getattr(usage, "response_tokens", None) or getattr(
+                    usage, "completion_tokens", None
+                )
 
             await log_ai_call(
                 session=session,
@@ -241,7 +245,11 @@ async def review_plan(
     except Exception as exc:
         latency_ms = int((time.monotonic() - start_time) * 1000)
         err_str = str(exc)
-        is_429 = "429" in err_str or "ResourceExhausted" in err_str or "quota" in err_str.lower()
+        is_429 = (
+            "429" in err_str
+            or "ResourceExhausted" in err_str
+            or "quota" in err_str.lower()
+        )
         log_status = "rate_limited" if is_429 else "failure"
 
         await log_ai_call(
@@ -304,9 +312,9 @@ async def draft_plan_from_brain_dump(
                 prompt_tokens = getattr(usage, "request_tokens", None) or getattr(
                     usage, "prompt_tokens", None
                 )
-                completion_tokens = getattr(
-                    usage, "response_tokens", None
-                ) or getattr(usage, "completion_tokens", None)
+                completion_tokens = getattr(usage, "response_tokens", None) or getattr(
+                    usage, "completion_tokens", None
+                )
 
             await log_ai_call(
                 session=session,
@@ -341,7 +349,11 @@ async def draft_plan_from_brain_dump(
     except Exception as exc:
         latency_ms = int((time.monotonic() - start_time) * 1000)
         err_str = str(exc)
-        is_429 = "429" in err_str or "ResourceExhausted" in err_str or "quota" in err_str.lower()
+        is_429 = (
+            "429" in err_str
+            or "ResourceExhausted" in err_str
+            or "quota" in err_str.lower()
+        )
         log_status = "rate_limited" if is_429 else "failure"
 
         await log_ai_call(

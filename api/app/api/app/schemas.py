@@ -303,5 +303,3 @@ class BrainDumpRequest(Model):
         max_length=10000,
         description="Unstructured notes or scratchpad text",
     )
-
-

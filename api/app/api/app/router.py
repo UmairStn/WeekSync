@@ -10,5 +10,3 @@ router.include_router(orgs.router)
 router.include_router(teams.router)
 router.include_router(plans.router)
 router.include_router(ai.router)
-
-

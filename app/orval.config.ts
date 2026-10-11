@@ -1,9 +1,14 @@
+import fs from "node:fs";
 import { defineConfig } from "orval";
+
+const specInput = fs.existsSync("./openapi.json")
+  ? "./openapi.json"
+  : "http://localhost:8000/app/openapi.json";
 
 export default defineConfig({
   // TanStack Query hooks + typed models, split per OpenAPI tag (per-domain files).
   launchbase: {
-    input: "http://localhost:8000/app/openapi.json",
+    input: specInput,
     output: {
       mode: "tags-split",
       target: "src/api/endpoints",
@@ -26,7 +31,7 @@ export default defineConfig({
   },
   // Standalone zod schemas (request/response/params), composable for react-hook-form.
   launchbaseZod: {
-    input: "http://localhost:8000/app/openapi.json",
+    input: specInput,
     output: {
       mode: "tags-split",
       target: "src/api/zod",

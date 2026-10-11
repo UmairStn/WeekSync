@@ -10,10 +10,10 @@ export const Route = createFileRoute("/_main")({ component: MainLayout });
 function MainLayout() {
   return (
     <AuthGuard>
-      <div className="flex h-screen overflow-hidden bg-muted/30">
+      <div className="flex h-screen overflow-hidden bg-[#FBFBFA] dark:bg-background">
         <Sidebar />
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-6xl space-y-6 p-6 lg:p-8">
+          <div className="mx-auto max-w-5xl space-y-8 p-6 lg:p-10">
             <Outlet />
           </div>
         </main>

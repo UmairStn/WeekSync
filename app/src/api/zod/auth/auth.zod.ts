@@ -20,6 +20,22 @@ export const AuthResponse = zod.object({
 });
 
 /**
+ * @summary Signup
+ */
+export const SignupBody = zod.object({
+  email: zod.string().email(),
+  password: zod.string(),
+  first_name: zod.string(),
+  last_name: zod.string(),
+  org_name: zod.union([zod.string(), zod.null()]).optional(),
+  invite_token: zod.union([zod.string(), zod.null()]).optional(),
+});
+
+export const SignupResponse = zod.object({
+  access_token: zod.string(),
+});
+
+/**
  * @summary Logout
  */
 export const LogoutResponse = zod.object({

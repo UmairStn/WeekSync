@@ -1,0 +1,154 @@
+# Requirements Checklist
+
+> Tick only when verified (tests pass or manually confirmed).
+
+---
+
+## 1. Brand
+- [ ] Product name chosen (short, easy to say/spell, not "Weekly Planner")
+- [ ] One-line pitch written
+- [ ] SVG logo created, readable at 16px, works on light and dark backgrounds
+- [ ] Logo used as favicon, app header, sign-in page, landing page
+- [ ] Page `<title>` set across all three front ends
+- [ ] Every user-facing "Launchbase" string replaced
+- [ ] Admin panel clearly marked INTERNAL in branding
+- [ ] All three front ends tell the same brand story
+
+## 2. Auth & Organizations
+- [ ] Sign-up endpoint added (email + password, built on existing auth code)
+- [ ] New user can create an organization after sign-up
+- [ ] New user can join an organization via invite link
+- [ ] Copyable invite link generation (no email sending)
+- [ ] Org roles: owner, admin, member
+- [ ] Owners and admins can manage members and settings
+- [ ] Members can plan their own weeks
+- [ ] Sign-up page in app/
+
+## 3. Teams
+- [ ] Admins can create teams inside an org
+- [ ] Admins can add members to teams
+- [ ] Admins can assign a team lead
+- [ ] A user can belong to more than one team
+
+## 4. Plans
+- [ ] Plan keyed by week's Monday date
+- [ ] Plan has: one main task (what to ship + why it matters)
+- [ ] Plan has: sub-goals (smaller tasks)
+- [ ] Plan has: go-to-market goals
+- [ ] Every item is a separate task with own status (tickable)
+- [ ] Plan status flow: draft → submitted → approved → done
+- [ ] Team lead can approve a plan
+- [ ] Team lead can send back a plan with a comment
+- [ ] Tasks can be ticked done during the week
+- [ ] Member can mark whether the main task shipped at week end
+
+## 5. Team's Week
+- [ ] Lead picks a week and sees every member at a glance
+- [ ] Shows: who submitted, what's approved, tasks done, goal shipped
+- [ ] History view shows past weeks
+
+## 6. Tenancy (3-star weight)
+- [ ] User in one org cannot read another org's data
+- [ ] Member cannot act as admin
+- [ ] Non-lead cannot approve a plan
+- [ ] Every endpoint scopes by org and role
+- [ ] Cross-org access returns 404 (never leaks object existence)
+- [ ] Suspended orgs lock members out
+- [ ] Tests cover: other org's ID
+- [ ] Tests cover: member acting as admin
+- [ ] Tests cover: non-lead approving
+- [ ] Tests cover: suspended org
+
+## 7. Seeding
+- [ ] `uv run manage.py seed` command exists
+- [ ] Creates at least 2 organizations
+- [ ] Creates teams with members in each role
+- [ ] Creates several weeks of plans (some shipped, some not)
+- [ ] Prints demo logins: member, team lead, org owner, staff
+
+## 8. UX Bar
+- [ ] Loading states while model thinks
+- [ ] Clear empty states
+- [ ] Forbidden pages that say so
+- [ ] No dead buttons
+
+## 9. Internal Admin Panel (2-star weight)
+- [ ] Staff-only access (is_admin + internal-scoped tokens)
+- [ ] Staff never created via sign-up
+- [ ] Customer org owners/admins cannot reach it
+- [ ] Organizations list: member count, team count, plan count, last active
+- [ ] Staff can suspend an org
+- [ ] Staff can reinstate an org
+- [ ] Users: search, see which orgs a user belongs to, deactivate account
+- [ ] AI usage: calls per org, failures, rate-limited calls
+- [ ] Decision documented: can staff see customer plan text?
+- [ ] Panel clearly marked INTERNAL
+
+## 10. AI Integration (3-star weight)
+- [ ] Using pydantic-ai-slim[google], model gemini-3.5-flash-lite
+- [ ] GOOGLE_API_KEY via api/.env settings, never in browser, never committed
+- [ ] Empty GOOGLE_API_KEY= in api/.env.example
+
+### Feature A: Plan Review
+- [ ] Agent returns structured review with Pydantic output_type
+- [ ] Flags: work-description tasks (not checkable results)
+- [ ] Flags: main task without why-it-matters
+- [ ] Flags: missing go-to-market goals
+- [ ] Flags: scope that doesn't fit a week
+- [ ] Each finding points at a specific task by ID
+- [ ] Each finding includes a concrete suggested rewrite
+- [ ] UI shows findings next to the tasks they're about
+- [ ] One-click apply suggestion
+- [ ] Instructions do NOT wave through "Implement checkout"-style tasks
+
+### Feature B: Brain Dump Draft
+- [ ] Member pastes messy notes, gets pre-filled plan
+- [ ] Output goes into form only, NEVER to database
+
+### Integration Requirements
+- [ ] Product works without AI (graceful degradation)
+- [ ] Timeout and 429 handling with plain-words UI message
+- [ ] No request on every keystroke (explicit button, disabled while in flight)
+- [ ] Every call recorded per org: success/failure/rate-limited
+- [ ] Tests use TestModel/FunctionModel (no real API calls)
+- [ ] `uv run pytest` passes with no key and no network
+- [ ] AI earns its place: typed data the app acts on
+
+## 11. Landing Page (site/)
+- [ ] Hero: name, logo, one sharp line, "Get started" CTA → app/ sign-up
+- [ ] How it works section
+- [ ] Show the AI: real rendered example of plan review
+- [ ] For teams section
+- [ ] Responsive down to phone
+- [ ] Proper `<title>` and meta description
+- [ ] Open Graph image
+- [ ] No lorem ipsum
+- [ ] No generic AI marketing copy
+- [ ] Copy sounds human when read aloud
+
+## 12. Code Quality
+- [ ] Follows Launchbase patterns
+- [ ] Migrations are autogenerated and reviewed
+- [ ] Generated client regenerated after API changes
+- [ ] No dead code left behind
+- [ ] Small commits with clear messages
+
+## 13. Submission
+- [ ] SUBMISSION.md at repo root
+- [ ] How to run instructions
+- [ ] Seed command documented
+- [ ] Demo logins documented
+- [ ] Brand name and pitch
+- [ ] Honest hours spent
+- [ ] What's cut and why
+- [ ] `git archive` zip verified from fresh unzip
+
+## 14. Rules Compliance
+- [ ] No protected core replaced (auth, token scopes, is_admin, API surfaces, DB stack, client generation)
+- [ ] Every core-file edit logged in plans/03-decisions.md
+- [ ] No Supabase or alternative auth introduced
+- [ ] is_admin never used for customer org permissions
+- [ ] Org roles use clearly different names from staff
+- [ ] No enums in models
+- [ ] Services flush, routers commit
+- [ ] No hand-written fetch calls to own API

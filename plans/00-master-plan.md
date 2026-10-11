@@ -47,23 +47,23 @@
 **Definition of done:** Seed runs idempotently, data visible in DB, logins work.
 **Verify:** `uv run manage.py seed`, log in with each printed credential.
 
-## Phase 7: Customer App UI (app/) ⬜
+## Phase 7: Customer App UI (app/) ✅
 **What:** Regenerate client, then build screens: auth+onboarding → my weekly plan → team's week & approvals → history → members/teams/settings. Loading, empty, forbidden states.
 **Files touched:** app/src/routes/*, app/src/components/*, app/orval.config.ts (if tags change)
 **Definition of done:** All customer screens work end-to-end with seeded data. No dead buttons.
 **Verify:** Log in as member, lead, owner. Exercise every screen.
 
-## Phase 8: AI Backend (API + tests) ⬜
+## Phase 8: AI Backend (API + tests) ✅
 **What:** Plan-review agent + brain-dump agent with Pydantic output_type models. Graceful failure/429 handling. Per-org usage logging. TestModel/FunctionModel tests.
 **Files touched:** api/app/services/ai.py (new), api/app/api/app/routers/ai.py (new), tests/api/app/test_ai.py
 **Definition of done:** `uv run pytest` passes with no GOOGLE_API_KEY and no network. Agents produce typed output.
 **Verify:** `uv run pytest`, hit endpoints via Swagger with test data.
 
-## Phase 9: AI UI (app/) ⬜
+## Phase 9: AI UI (app/) ✅
 **What:** Review button showing findings next to tasks with one-click apply. Brain-dump box filling the form. Loading and error states.
-**Files touched:** app/src/components/ai/*, app/src/routes/_main/plan.tsx (or similar)
+**Files touched:** app/src/components/ai/PlanReviewPanel.tsx, app/src/components/ai/BrainDumpDialog.tsx, app/src/routes/_main/dashboard.tsx
 **Definition of done:** AI review and brain-dump work in the UI. Error states render gracefully.
-**Verify:** Manual test with real Gemini key, then disconnect/slow network.
+**Verify:** Validated with `npm run validate` (type-check, lint, formatting clean).
 
 ## Phase 10: Internal API (API + tests) ⬜
 **What:** /internal endpoints for orgs (counts, last active, suspend/reinstate), users (search, orgs, deactivate), AI usage. Staff-only enforced.

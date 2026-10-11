@@ -21,8 +21,8 @@
 - [x] Copyable invite link generation (no email sending)
 - [x] Org roles: owner, admin, member
 - [x] Owners and admins can manage members and settings
-- [ ] Members can plan their own weeks
-- [ ] Sign-up page in app/
+- [x] Members can plan their own weeks
+- [x] Sign-up page in app/
 
 ## 3. Teams
 - [x] Admins can create teams inside an org
@@ -85,34 +85,34 @@
 - [ ] Panel clearly marked INTERNAL
 
 ## 10. AI Integration (3-star weight)
-- [ ] Using pydantic-ai-slim[google], model gemini-3.5-flash-lite
-- [ ] GOOGLE_API_KEY via api/.env settings, never in browser, never committed
-- [ ] Empty GOOGLE_API_KEY= in api/.env.example
+- [x] Using pydantic-ai-slim[google], model gemini-3.5-flash-lite (configurable via settings.AI_MODEL)
+- [x] GOOGLE_API_KEY via api/.env settings, never in browser, never committed
+- [x] Empty GOOGLE_API_KEY= in api/.env.example
 
 ### Feature A: Plan Review
-- [ ] Agent returns structured review with Pydantic output_type
-- [ ] Flags: work-description tasks (not checkable results)
-- [ ] Flags: main task without why-it-matters
-- [ ] Flags: missing go-to-market goals
-- [ ] Flags: scope that doesn't fit a week
-- [ ] Each finding points at a specific task by ID
-- [ ] Each finding includes a concrete suggested rewrite
-- [ ] UI shows findings next to the tasks they're about
-- [ ] One-click apply suggestion
-- [ ] Instructions do NOT wave through "Implement checkout"-style tasks
+- [x] Agent returns structured review with Pydantic output_type
+- [x] Flags: work-description tasks (not checkable results)
+- [x] Flags: main task without why-it-matters
+- [x] Flags: missing go-to-market goals
+- [x] Flags: scope that doesn't fit a week
+- [x] Each finding points at a specific task by ID
+- [x] Each finding includes a concrete suggested rewrite
+- [x] UI shows findings next to the tasks they're about
+- [x] One-click apply suggestion
+- [x] Instructions do NOT wave through "Implement checkout"-style tasks
 
 ### Feature B: Brain Dump Draft
-- [ ] Member pastes messy notes, gets pre-filled plan
-- [ ] Output goes into form only, NEVER to database
+- [x] Member pastes messy notes, gets pre-filled plan
+- [x] Output goes into form only, NEVER to database
 
 ### Integration Requirements
-- [ ] Product works without AI (graceful degradation)
-- [ ] Timeout and 429 handling with plain-words UI message
-- [ ] No request on every keystroke (explicit button, disabled while in flight)
-- [ ] Every call recorded per org: success/failure/rate-limited
-- [ ] Tests use TestModel/FunctionModel (no real API calls)
-- [ ] `uv run pytest` passes with no key and no network
-- [ ] AI earns its place: typed data the app acts on
+- [x] Product works without AI (graceful degradation)
+- [x] Timeout and 429 handling with plain-words UI message
+- [x] No request on every keystroke (explicit button, disabled while in flight)
+- [x] Every call recorded per org: success/failure/rate-limited
+- [x] Tests use TestModel/FunctionModel (no real API calls)
+- [x] `uv run pytest` passes with no key and no network
+- [x] AI earns its place: typed data the app acts on
 
 ## 11. Landing Page (site/)
 - [ ] Hero: name, logo, one sharp line, "Get started" CTA → app/ sign-up

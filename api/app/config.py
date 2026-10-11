@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     # Cloudflare API token for SSL certificates
     CLOUDFLARE_API_TOKEN: str | None = None
 
+    # Google Gemini AI settings
+    GOOGLE_API_KEY: str | None = None
+    AI_MODEL: str = "google:gemini-3.5-flash-lite"
+
     @field_validator("SECRET_KEY")
     @classmethod
     def validate_secret_key(cls, v):

@@ -1,6 +1,7 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import { QueryProvider } from "@/components/QueryProvider";
 import { UserProvider } from "@/contexts/user-context";
+import { TenantProvider } from "@/contexts/tenant-context";
 import { Toaster } from "@/components/ui/sonner";
 import appCss from "@/styles.css?url";
 
@@ -11,13 +12,17 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Launchbase" },
-      { name: "description", content: "Launchbase app." },
+      { title: "WeekSync — Weekly Planning for High-Output Teams" },
+      {
+        name: "description",
+        content:
+          "Align on what ships this week, why it matters, and review progress with your team.",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
       { rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
+      { rel: "alternate icon", href: "/icon.svg" },
     ],
   }),
   shellComponent: RootDocument,
@@ -32,8 +37,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body className="antialiased">
         <QueryProvider>
           <UserProvider>
-            {children}
-            <Toaster />
+            <TenantProvider>
+              {children}
+              <Toaster />
+            </TenantProvider>
           </UserProvider>
         </QueryProvider>
         <Scripts />

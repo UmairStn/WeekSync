@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from datetime import date
+from enum import Enum
+from typing import Literal
+
 from pydantic import UUID4, EmailStr, Field
 
 from app.schemas import DateTime, Model
@@ -198,5 +201,107 @@ class TeamWeekResponse(Model):
     team_name: str
     week_start_date: date
     members: list[MemberWeeklyStatus]
+
+
+# --- AI Features ---
+
+
+class FindingType(str, Enum):
+    VAGUE_ACTIVITY = "vague_activity"  # Describes work instead of checkable outcome
+    MISSING_IMPACT = "missing_impact"  # Main task doesn't state why it matters
+    MISSING_GTM = "missing_gtm"  # No telemetry, docs, or release safety
+    UNREALISTIC_SCOPE = "unrealistic_scope"  # Too broad for one week
+
+
+class PlanFinding(Model):
+    task_id: UUID4 | None = Field(
+        None,
+        description="The UUID of the specific task this finding applies to, or null if plan-wide",
+    )
+    task: str | None = Field(
+        None,
+        description="Title or description of which task this is about (matches brief)",
+    )
+    issue_type: FindingType = Field(..., description="Categorization of the critique")
+    problem: str | None = Field(
+        None,
+        description="Summary of the problem (matches brief)",
+    )
+    critique: str = Field(
+        ...,
+        description="Clear explanation of why this task will trigger lead pushback",
+    )
+    suggested_rewrite: str | None = Field(
+        None,
+        description="Concrete, drop-in replacement title or text describing the verifiable result",
+    )
+
+
+class PlanReviewResult(Model):
+    verdict: str = Field(
+        "adjust",
+        description="Review verdict: 'approve' | 'adjust' (matches brief)",
+    )
+    overall_assessment: str = Field(
+        ...,
+        description="2-3 sentence executive assessment of the week's strategic focus",
+    )
+    findings: list[PlanFinding] = Field(
+        default_factory=list, description="Specific items requiring refinement"
+    )
+    ready_to_submit: bool = Field(
+        ..., description="True if no blocking vague tasks remain"
+    )
+
+
+class PlanReviewTaskInput(Model):
+    id: UUID4 | None = None
+    category: str = Field(..., description="'main', 'sub_goal', or 'gtm'")
+    title: str = Field(..., min_length=1, max_length=500)
+    why_it_matters: str | None = None
+
+
+class PlanReviewRequest(Model):
+    week_start_date: date | None = None
+    tasks: list[PlanReviewTaskInput] = Field(..., min_length=1)
+
+
+class DraftTask(Model):
+    category: Literal["main", "sub_goal", "gtm"] = Field(
+        ..., description="Category of task"
+    )
+    title: str = Field(
+        ..., description="Actionable title describing a checkable outcome"
+    )
+    why_it_matters: str | None = Field(
+        None, description="Business impact explanation (required for main task)"
+    )
+
+
+class BrainDumpResult(Model):
+    main_task: DraftTask = Field(
+        ..., description="The primary shippable initiative of the week"
+    )
+    sub_goals: list[DraftTask] = Field(
+        ...,
+        min_length=1,
+        max_length=5,
+        description="Tactical tasks delivering the main goal",
+    )
+    gtm_goals: list[DraftTask] = Field(
+        ...,
+        min_length=1,
+        max_length=4,
+        description="Release enablement (metrics, flags, changelog)",
+    )
+
+
+class BrainDumpRequest(Model):
+    notes: str = Field(
+        ...,
+        min_length=5,
+        max_length=10000,
+        description="Unstructured notes or scratchpad text",
+    )
 
 

@@ -175,3 +175,174 @@
 - **Commands to Verify:**
   - `git status`
   - `cd ~/WeekSync/api && uv run pytest -v`
+
+---
+
+## Session 6: 2026-10-11 23:45 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** Phase 7 (Customer App UI in `app/`)
+- **What Was Done:**
+  - Installed node dependencies via `npm install` in `app/`.
+  - Regenerated Orval API client hooks and schemas (`organizations`, `teams`, `plans`, `users`, `auth`, `meta`).
+  - Created WeekSync minimalist SVG branding in `app/src/components/Logo.tsx` and updated document title/meta in `app/src/routes/__root.tsx`.
+  - Implemented `TenantProvider` in `app/src/contexts/tenant-context.tsx` managing active organization, active team, role calculation (`isOwner`, `isAdmin`, `isTeamLead`), and Monday-keyed week navigation (`goToPreviousWeek`, `goToNextWeek`, `goToCurrentWeek`).
+  - Implemented Minimalist Sidebar (`app/src/components/dashboard/sidebar.tsx`) with org switcher, team selector, role badges, and navigation.
+  - Built Auth page (`app/src/routes/login.tsx`) with Sign-In, Sign-Up (org creation or invite token join), and instant 1-click Demo Account login buttons.
+  - Built Weekly Plan Creator & Editor (`app/src/routes/_main/dashboard.tsx`): Main Task (what + why), checkable Sub-Goals, checkable GTM goals, review status pill, lead review banner, and end-of-week outcome toggle.
+  - Built Team's Week Rollup (`app/src/routes/_main/team.tsx`): Team lead KPI bento grid, member cards, and inline Approve and Send Back with comments.
+  - Built History Archive (`app/src/routes/_main/history.tsx`): Chronological view of past weekly plans.
+  - Built Settings & Teams (`app/src/routes/_main/settings.tsx`): Team creation, lead assignment, copyable invite token generation, and member role management.
+  - Updated `plans/00-master-plan.md`, `plans/01-requirements-checklist.md`, and `plans/03-decisions.md` (Decision 8).
+  - Validated with `npm run validate` (tsr generate, tsc type-check, oxlint, oxfmt) — passed 100% clean with zero errors or warnings.
+- **What's In Progress:** Phase 7 complete and verified. Ready to proceed to Phase 8 (AI Backend).
+- **The Exact Next Step:**
+  - Build Phase 8: AI Backend (`pydantic-ai-slim[google]`, Plan Review Agent, Brain Dump Agent, Call Logging, Offline Tests).
+- **Blockers:** None.
+- **Files Touched:**
+  - `app/src/components/Logo.tsx`
+  - `app/src/contexts/tenant-context.tsx`
+  - `app/src/components/dashboard/sidebar.tsx`
+  - `app/src/routes/__root.tsx`
+  - `app/src/routes/_main.tsx`
+  - `app/src/routes/login.tsx`
+  - `app/src/routes/_main/dashboard.tsx`
+  - `app/src/routes/_main/team.tsx`
+  - `app/src/routes/_main/history.tsx`
+  - `app/src/routes/_main/settings.tsx`
+  - `app/src/lib/utils.ts`
+  - `app/orval.config.ts`
+  - `app/.oxlintrc.json`
+  - `api/app/main.py`
+  - `api/app/cli/commands.py`
+  - `plans/00-master-plan.md`
+  - `plans/01-requirements-checklist.md`
+  - `plans/03-decisions.md`
+  - `logs/SESSION_LOG.md`
+- **Commands to Verify:**
+  - `cd ~/WeekSync/app && npm run validate`
+  - Open `http://localhost:3001` in browser and test demo logins
+
+---
+
+## Session 7: 2026-10-11 23:58 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** Phase 7 UI Fix (Base UI MenuGroupContext)
+- **What Was Done:**
+  - Fixed runtime error `Base UI: MenuGroupContext is missing. Menu group parts must be used within <Menu.Group> or <Menu.RadioGroup>.` in `app/src/components/dashboard/sidebar.tsx`.
+  - Imported `DropdownMenuGroup` from `@/components/ui/dropdown-menu` and wrapped `<DropdownMenuLabel>` and the organization items inside `<DropdownMenuGroup>`.
+- **What's In Progress:** Paused strictly at user request. Holding before starting Phase 8.
+- **The Exact Next Step:**
+  - Await explicit instructions from user before beginning Phase 8 (AI Backend).
+- **Blockers:** None (holding per user instruction: "dont start phae 8 speifically i say").
+- **Files Touched:**
+  - `app/src/components/dashboard/sidebar.tsx`
+  - `logs/SESSION_LOG.md`
+- **Commands to Verify:**
+  - Refresh `http://localhost:3001` in browser and click the organization switcher in the sidebar.
+
+---
+
+## Session 8: 2026-10-12 00:22 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** Phase 8: AI Backend (`api/`)
+- **What Was Done:**
+  - Installed `pydantic-ai-slim[google]>=2.55.0` via `uv add "pydantic-ai-slim[google]"` in `api/`.
+  - Added `GOOGLE_API_KEY` and `AI_MODEL` to `api/app/config.py` with empty `GOOGLE_API_KEY=` in `api/.env.example`.
+  - Defined strict typed AI schemas in `api/app/api/app/schemas.py`: `FindingType`, `PlanFinding`, `PlanReviewResult`, `PlanReviewRequest`, `DraftTask`, `BrainDumpResult`, `BrainDumpRequest`.
+  - Implemented AI service in `api/app/services/ai.py`:
+    - Plan Review Agent ("Approval Meeting in a Box") enforcing checkable outcomes, why-it-matters impact, GTM goals, realistic scope, and suggested rewrites.
+    - Brain Dump Agent ("Draft from Notes") transforming unstructured text into 1 Main Task, 1-5 Sub-Goals, and 1-4 GTM Goals.
+    - Zero direct database writes to `Plan` or `Task` tables.
+    - Comprehensive tenant telemetry recording every invocation to `AICallLog` (`organization_id`, `user_id`, `feature`, `status`, latency, tokens).
+    - 15-second budget via `asyncio.timeout(15.0)` and error mapping for timeouts (504), rate limits (429), and service degradation (502/503).
+    - Hermetic test hook `TEST_OVERRIDE_MODEL` allowing `TestModel` injection for offline testing.
+  - Implemented API router in `api/app/api/app/routers/ai.py` with endpoints `POST /orgs/{org_id}/ai/review` and `POST /orgs/{org_id}/ai/brain-dump` protected by `RequireOrgMember` (Anti-Oracle 404).
+  - Registered `ai.router` in `api/app/api/app/router.py` and added `"ai"` tag to `api/app/main.py`.
+  - Created offline hermetic test suite in `api/tests/api/app/test_ai.py` (5 tests covering plan review, brain dump, tenant isolation, unconfigured fallback, and suspended org protection).
+  - Fixed test suite and service integration:
+    - Supported `result.usage` as either a property or callable on Pydantic AI's `RunUsage` to prevent `TypeError: 'RunUsage' object is not callable`.
+    - Aligned test error assertions with Launchbase's `APIException` response contract (`{"detail": [{"type": ...}]}`).
+  - Regenerated frontend API client hooks via `npm run generate` in `app/`, creating typed `useAiPlanReview` and `useAiBrainDump` TanStack Query hooks.
+  - Validated frontend via `npm run validate` (0 warnings, 0 errors).
+  - Verified linter via `uv run ruff check` (All checks passed).
+  - Updated `plans/00-master-plan.md`, `plans/01-requirements-checklist.md`, `plans/03-decisions.md` (Decision 9), and `plans/07-change-log.md`.
+- **What's In Progress:** Phase 8 complete and verified. Ready to proceed to Phase 9 (AI UI in `app/`).
+- **The Exact Next Step:**
+  - Implement Phase 9: AI UI in `app/`:
+    1. Add "AI Review" button in My Weekly Plan (`app/src/routes/_main/dashboard.tsx`) with findings panel, inline task critique badges, and 1-click apply rewrite.
+    2. Add "Brain Dump" scratchpad modal / collapsible box in `app/src/routes/_main/dashboard.tsx` with draft prefill.
+    3. Include polite fallback banners for 503 (unconfigured), 504 (timeout), and 429 (rate limit).
+- **Blockers:** None.
+- **Files Touched:**
+  - `api/pyproject.toml`
+  - `api/app/config.py`
+  - `api/.env.example`
+  - `api/app/api/app/schemas.py`
+  - `api/app/services/ai.py`
+  - `api/app/api/app/routers/ai.py`
+  - `api/app/api/app/router.py`
+  - `api/app/main.py`
+  - `api/tests/api/app/test_ai.py`
+  - `app/src/api/endpoints/ai/ai.ts`
+  - `app/src/api/model/*`
+  - `plans/00-master-plan.md`
+  - `plans/01-requirements-checklist.md`
+  - `plans/03-decisions.md`
+  - `plans/07-change-log.md`
+  - `logs/SESSION_LOG.md`
+- **Commands to Verify:**
+  - `cd ~/WeekSync/api && uv run pytest -v tests/api/app/test_ai.py`
+  - `cd ~/WeekSync/api && uv run ruff check app/services/ai.py app/api/app/routers/ai.py tests/api/app/test_ai.py`
+  - `cd ~/WeekSync/app && npm run validate`
+
+---
+
+## Session 9: 2026-10-12 01:05 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** Phase 9: AI UI (`app/`)
+- **What Was Done:**
+  - Built `PlanReviewPanel.tsx` in `app/src/components/ai/`:
+    - Executive assessment header and verdict pill (`Ready for Lead` / `Revisions Recommended`).
+    - Findings list categorized by issue type (`vague_activity`, `missing_impact`, `missing_gtm`, `unrealistic_scope`) using muted pastel color tokens matching `minimalist-ui`.
+    - Concrete suggested rewrite in monospace container with 1-click "Apply to Plan" action.
+    - Exported `InlineFindingCard` for embedding critiques directly adjacent to input fields in the plan form.
+  - Built `BrainDumpDialog.tsx` in `app/src/components/ai/`:
+    - Scratchpad modal with notes textarea, 5-character threshold validator, and in-flight spinner.
+    - Synthesizes 1 checkable Main Task with why-it-matters impact, 1-5 Sub-Goals, and 1-4 GTM Goals.
+    - Strictly form-targeted: populates local form state without writing to the database until user clicks "Save Draft".
+  - Integrated into `app/src/routes/_main/dashboard.tsx`:
+    - "Draft with AI" and "AI Review" action buttons in header and bottom action bars.
+    - Top executive `PlanReviewPanel` rendering full findings breakdown.
+    - Inline task critique badges rendered directly beneath Main Task, Sub-Goals, and GTM Goals with 1-click apply rewrite handlers that drop suggestions directly into the targeted fields and remove applied findings.
+    - Resilient dismissible fallback banner for upstream AI service degradation (503 unconfigured key, 504 timeout, 429 rate limit), allowing users to continue manual planning without interruption.
+  - Fixed minor backend linter warnings across `api/app` (`commands.py`, `orgs.py`, `plans.py`) so `uv run ruff check app/` passes with 0 errors.
+  - Ran `uv run pytest -v` across all 35 tests in `api/`: 35 passed in 9.11s.
+  - Ran `npm run validate` in `app/` (`tsr generate && tsc --noEmit && oxlint --deny-warnings && oxfmt --check`): 0 errors, 0 warnings.
+  - Updated `plans/00-master-plan.md`, `plans/01-requirements-checklist.md`, `plans/03-decisions.md` (Decision 10), `plans/07-change-log.md`.
+- **What's In Progress:** Phase 9 complete and verified. Ready to proceed to Phase 10: Internal API (`api/app/api/internal/`).
+- **The Exact Next Step:**
+  - Build Phase 10: Internal API for platform staff (`api/app/api/internal/`):
+    1. `GET /internal/orgs`: List all organizations with member count, team count, plan count, last active date.
+    2. `POST /internal/orgs/{org_id}/suspend` and `POST /internal/orgs/{org_id}/reinstate`: Org suspension lifecycle.
+    3. `GET /internal/users`: User search and account deactivation.
+    4. `GET /internal/ai-usage`: Aggregate AI call telemetry per organization.
+    5. Unit & security tests in `api/tests/api/internal/` ensuring staff-only enforcement (`is_admin=True` + internal audience).
+- **Blockers:** None.
+- **Files Touched:**
+  - `app/src/components/ai/PlanReviewPanel.tsx`
+  - `app/src/components/ai/BrainDumpDialog.tsx`
+  - `app/src/routes/_main/dashboard.tsx`
+  - `api/app/cli/commands.py`
+  - `api/app/services/orgs.py`
+  - `api/app/services/plans.py`
+  - `api/app/api/app/routers/plans.py`
+  - `plans/00-master-plan.md`
+  - `plans/01-requirements-checklist.md`
+  - `plans/03-decisions.md`
+  - `plans/07-change-log.md`
+  - `logs/SESSION_LOG.md`
+- **Commands to Verify:**
+  - `cd ~/WeekSync/app && npm run validate`
+  - `cd ~/WeekSync/api && uv run pytest -v`
+  - `cd ~/WeekSync/api && uv run ruff check app/`
+

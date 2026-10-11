@@ -54,3 +54,6 @@ Thumbs.db
 # Agent / Tooling local caches
 .antigravity/
 .gemini/
+.pi/
+*:Zone.Identifier
+*.pdf

@@ -55,8 +55,12 @@ class Organization(IdMixin, TimestampMixin, Base):
     __tablename__ = "organizations"
 
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    slug: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
-    is_suspended: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    slug: Mapped[str] = mapped_column(
+        String(100), nullable=False, unique=True, index=True
+    )
+    is_suspended: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, index=True
+    )
 
     memberships: Mapped[list[Membership]] = relationship(
         "Membership", back_populates="organization", cascade="all, delete-orphan"
@@ -76,14 +80,22 @@ class Membership(IdMixin, TimestampMixin, Base):
     __tablename__ = "memberships"
 
     organization_id: Mapped[uuid.UUID] = mapped_column(
-        types.Uuid, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+        types.Uuid,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        types.Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        types.Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     org_role: Mapped[str] = mapped_column(String(20), nullable=False, default="member")
 
-    organization: Mapped[Organization] = relationship("Organization", back_populates="memberships")
+    organization: Mapped[Organization] = relationship(
+        "Organization", back_populates="memberships"
+    )
     user: Mapped[User] = relationship("User")
 
     __table_args__ = (
@@ -95,14 +107,22 @@ class Team(IdMixin, TimestampMixin, Base):
     __tablename__ = "teams"
 
     organization_id: Mapped[uuid.UUID] = mapped_column(
-        types.Uuid, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+        types.Uuid,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     lead_user_id: Mapped[uuid.UUID | None] = mapped_column(
-        types.Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+        types.Uuid,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
 
-    organization: Mapped[Organization] = relationship("Organization", back_populates="teams")
+    organization: Mapped[Organization] = relationship(
+        "Organization", back_populates="teams"
+    )
     lead_user: Mapped[User | None] = relationship("User", foreign_keys=[lead_user_id])
     members: Mapped[list[TeamMember]] = relationship(
         "TeamMember", back_populates="team", cascade="all, delete-orphan"
@@ -117,10 +137,16 @@ class TeamMember(IdMixin, TimestampMixin, Base):
     __tablename__ = "team_members"
 
     team_id: Mapped[uuid.UUID] = mapped_column(
-        types.Uuid, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True
+        types.Uuid,
+        ForeignKey("teams.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        types.Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        types.Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
     team: Mapped[Team] = relationship("Team", back_populates="members")
@@ -135,17 +161,26 @@ class Invite(IdMixin, TimestampMixin, Base):
     __tablename__ = "invites"
 
     organization_id: Mapped[uuid.UUID] = mapped_column(
-        types.Uuid, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+        types.Uuid,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    token: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    token: Mapped[str] = mapped_column(
+        String(64), nullable=False, unique=True, index=True
+    )
     role: Mapped[str] = mapped_column(String(20), nullable=False, default="member")
     created_by_user_id: Mapped[uuid.UUID] = mapped_column(
         types.Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     is_revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
-    organization: Mapped[Organization] = relationship("Organization", back_populates="invites")
+    organization: Mapped[Organization] = relationship(
+        "Organization", back_populates="invites"
+    )
     created_by: Mapped[User] = relationship("User")
 
 
@@ -153,13 +188,22 @@ class Plan(IdMixin, TimestampMixin, Base):
     __tablename__ = "plans"
 
     organization_id: Mapped[uuid.UUID] = mapped_column(
-        types.Uuid, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+        types.Uuid,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     team_id: Mapped[uuid.UUID] = mapped_column(
-        types.Uuid, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True
+        types.Uuid,
+        ForeignKey("teams.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        types.Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        types.Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     week_start_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
@@ -167,15 +211,24 @@ class Plan(IdMixin, TimestampMixin, Base):
     reviewed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         types.Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     main_task_shipped: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
-    organization: Mapped[Organization] = relationship("Organization", back_populates="plans")
+    organization: Mapped[Organization] = relationship(
+        "Organization", back_populates="plans"
+    )
     team: Mapped[Team] = relationship("Team")
     user: Mapped[User] = relationship("User", foreign_keys=[user_id])
-    reviewed_by: Mapped[User | None] = relationship("User", foreign_keys=[reviewed_by_user_id])
+    reviewed_by: Mapped[User | None] = relationship(
+        "User", foreign_keys=[reviewed_by_user_id]
+    )
     tasks: Mapped[list[Task]] = relationship(
-        "Task", back_populates="plan", cascade="all, delete-orphan", order_by="Task.sort_order"
+        "Task",
+        back_populates="plan",
+        cascade="all, delete-orphan",
+        order_by="Task.sort_order",
     )
 
     __table_args__ = (
@@ -187,7 +240,10 @@ class Task(IdMixin, TimestampMixin, Base):
     __tablename__ = "tasks"
 
     plan_id: Mapped[uuid.UUID] = mapped_column(
-        types.Uuid, ForeignKey("plans.id", ondelete="CASCADE"), nullable=False, index=True
+        types.Uuid,
+        ForeignKey("plans.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     category: Mapped[str] = mapped_column(String(20), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -202,10 +258,16 @@ class AICallLog(IdMixin, TimestampMixin, Base):
     __tablename__ = "ai_call_logs"
 
     organization_id: Mapped[uuid.UUID] = mapped_column(
-        types.Uuid, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
+        types.Uuid,
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        types.Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        types.Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     feature: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)

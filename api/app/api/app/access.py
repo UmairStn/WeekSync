@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 from typing import Annotated
+import uuid
 
 import jwt
 from fastapi import Depends, status
@@ -10,7 +12,7 @@ from app.config import settings
 from app.database import DBSession
 from app.exceptions import APIException, ResourceNotFoundException
 from app.logging import logger
-from app.models import User
+from app.models import Membership, Organization, User
 from app.security import JWT_AUDIENCE_APP
 
 http_credentials_exception = APIException(
@@ -141,3 +143,70 @@ get_current_http_user = build_http_user_dependency(
 )
 
 CurrentUser = Annotated[User, Depends(get_current_http_user)]
+
+
+@dataclass
+class TenantContext:
+    org: Organization
+    user: User
+    role: str  # "owner", "admin", "member"
+
+
+async def get_tenant_context(
+    org_id: uuid.UUID,
+    user: CurrentUser,
+    session: DBSession,
+) -> TenantContext:
+    """Resolve and validate the tenant context for a given organization ID.
+
+    Guarantees:
+    1. Organization exists, else raises 404.
+    2. Organization is not suspended, else raises 403 ORGANIZATION_SUSPENDED.
+    3. User is an active member of this organization, else raises 404 (Anti-Oracle protection).
+    """
+    org = await session.get(Organization, org_id)
+    if not org:
+        raise ResourceNotFoundException("Organization not found")
+
+    if org.is_suspended:
+        raise APIException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            code="ORGANIZATION_SUSPENDED",
+            message="This organization is suspended. Contact platform support.",
+        )
+
+    stmt = select(Membership).where(
+        Membership.organization_id == org_id,
+        Membership.user_id == user.id,
+    )
+    result = await session.execute(stmt)
+    membership = result.scalars().first()
+
+    if not membership:
+        # Anti-Oracle rule: Return 404 rather than 403 so cross-tenant callers
+        # cannot discover that another organization exists.
+        raise ResourceNotFoundException("Organization not found")
+
+    return TenantContext(org=org, user=user, role=membership.org_role)
+
+
+def require_org_role(*allowed_roles: str):
+    """Enforce organization role requirements on top of tenant context."""
+
+    async def role_checker(
+        tenant: Annotated[TenantContext, Depends(get_tenant_context)],
+    ) -> TenantContext:
+        if tenant.role not in allowed_roles:
+            raise APIException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                code="INSUFFICIENT_PERMISSIONS",
+                message=f"Action requires one of the following roles: {', '.join(allowed_roles)}",
+            )
+        return tenant
+
+    return role_checker
+
+
+RequireOrgMember = Annotated[TenantContext, Depends(get_tenant_context)]
+RequireOrgAdmin = Annotated[TenantContext, Depends(require_org_role("owner", "admin"))]
+RequireOrgOwner = Annotated[TenantContext, Depends(require_org_role("owner"))]

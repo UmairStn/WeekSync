@@ -4,6 +4,7 @@ from sqlalchemy import select, text
 from app.api.app.schemas import (
     AuthRequest,
     AuthResponse,
+    SignupRequest,
 )
 from app.config import settings
 from app.database import DBSession
@@ -16,6 +17,9 @@ from app.security import (
     generate_jwt_token,
     verify_password,
 )
+from app.services.invites import InviteService
+from app.services.orgs import OrganizationService
+from app.services.users import UserService
 
 router = APIRouter()
 
@@ -67,6 +71,52 @@ async def auth(
         code="INVALID_CREDENTIALS",
         message="Incorrect username or password",
     )
+
+
+@router.post("/signup", tags=["auth"])
+async def signup(
+    signup_data: SignupRequest,
+    session: DBSession,
+    response: Response,
+) -> AuthResponse:
+    user_service = UserService(session)
+    user = await user_service.create_user(
+        first_name=signup_data.first_name,
+        last_name=signup_data.last_name,
+        email=signup_data.email,
+        password=signup_data.password,
+        is_admin=False,
+        is_active=True,
+    )
+
+    if signup_data.invite_token:
+        invite_service = InviteService(session)
+        await invite_service.accept_invite(
+            token=signup_data.invite_token,
+            user_id=user.id,
+        )
+    elif signup_data.org_name:
+        org_service = OrganizationService(session)
+        await org_service.create_organization(
+            user_id=user.id,
+            name=signup_data.org_name,
+        )
+
+    await session.commit()
+
+    access_token = generate_jwt_token(
+        {"sub": str(user.id)}, audience=JWT_AUDIENCE_APP
+    )
+    response.set_cookie(
+        key="access_token",
+        value=f"Bearer {access_token}",
+        samesite="lax",
+        secure=settings.SECURE_COOKIE,
+        httponly=True,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+    return AuthResponse(access_token=access_token)
+
 
 
 @router.post("/logout", tags=["auth"])

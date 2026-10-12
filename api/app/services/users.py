@@ -2,11 +2,11 @@ import uuid
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import ConflictException, ResourceNotFoundException
-from app.models import User
+from app.models import Membership, Organization, User
 from app.security import hash_password
 
 
@@ -25,19 +25,29 @@ class UserService:
         *,
         limit: int = 50,
         offset: int = 0,
+        search: str | None = None,
     ) -> tuple[Sequence[User], int]:
-        """Return a page of users, newest first.
+        """Return a page of users, newest first, with optional search filtering."""
+        base_query = select(User)
+        count_query = select(func.count()).select_from(User)
 
-        Returns the page of users together with the total matching count so
-        callers can render pagination controls without a second query
-        round-trip on the caller side.
-        """
-        total = await self.session.scalar(select(func.count()).select_from(User))
+        if search:
+            pattern = f"%{search.strip().lower()}%"
+            cond = or_(
+                func.lower(User.email).like(pattern),
+                func.lower(User.first_name).like(pattern),
+                func.lower(User.last_name).like(pattern),
+            )
+            base_query = base_query.where(cond)
+            count_query = count_query.where(cond)
+
+        total = await self.session.scalar(count_query)
 
         result = await self.session.execute(
-            select(User).order_by(User.created_at.desc()).limit(limit).offset(offset)
+            base_query.order_by(User.created_at.desc()).limit(limit).offset(offset)
         )
         return result.scalars().all(), total or 0
+
 
     async def get_user(self, user_id: uuid.UUID) -> User:
         """Return a single user or raise 404."""
@@ -119,3 +129,39 @@ class UserService:
             raise ConflictException(
                 f"User with email '{email}' already exists.", field="email"
             )
+
+    async def get_user_organizations_map(
+        self, user_ids: Sequence[uuid.UUID]
+    ) -> dict[uuid.UUID, list[tuple[Organization, str]]]:
+        """Fetch organizations for a list of user IDs in a single batch query."""
+        if not user_ids:
+            return {}
+        stmt = (
+            select(Membership.user_id, Organization, Membership.org_role)
+            .join(Organization, Membership.organization_id == Organization.id)
+            .where(Membership.user_id.in_(user_ids))
+            .order_by(Organization.name)
+        )
+        result = await self.session.execute(stmt)
+        mapping: dict[uuid.UUID, list[tuple[Organization, str]]] = {
+            uid: [] for uid in user_ids
+        }
+        for uid, org, role in result.all():
+            if uid in mapping:
+                mapping[uid].append((org, role))
+        return mapping
+
+    async def deactivate_user(self, user_id: uuid.UUID) -> User:
+        """Deactivate a user account."""
+        user = await self.get_user(user_id)
+        user.is_active = False
+        await self.session.flush()
+        return user
+
+    async def reactivate_user(self, user_id: uuid.UUID) -> User:
+        """Reactivate a user account."""
+        user = await self.get_user(user_id)
+        user.is_active = True
+        await self.session.flush()
+        return user
+

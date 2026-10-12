@@ -1,12 +1,13 @@
 import re
 import uuid
 from collections.abc import Sequence
+from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import APIException, ResourceNotFoundException
-from app.models import Membership, Organization, User
+from app.models import Membership, Organization, Plan, Team, User
 
 
 def slugify(text: str) -> str:
@@ -168,3 +169,151 @@ class OrganizationService:
 
         await self.session.delete(membership)
         await self.session.flush()
+
+    async def list_organizations_internal(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        search: str | None = None,
+    ) -> tuple[Sequence[dict[str, Any]], int]:
+        """List all organizations with member count, team count, plan count, and last active."""
+        member_subq = (
+            select(
+                Membership.organization_id,
+                func.count(Membership.id).label("member_count"),
+            )
+            .group_by(Membership.organization_id)
+            .subquery()
+        )
+
+        team_subq = (
+            select(
+                Team.organization_id,
+                func.count(Team.id).label("team_count"),
+            )
+            .group_by(Team.organization_id)
+            .subquery()
+        )
+
+        plan_subq = (
+            select(
+                Plan.organization_id,
+                func.count(Plan.id).label("plan_count"),
+                func.max(func.coalesce(Plan.updated_at, Plan.created_at)).label(
+                    "last_plan_active"
+                ),
+            )
+            .group_by(Plan.organization_id)
+            .subquery()
+        )
+
+        query = (
+            select(
+                Organization,
+                func.coalesce(member_subq.c.member_count, 0).label("member_count"),
+                func.coalesce(team_subq.c.team_count, 0).label("team_count"),
+                func.coalesce(plan_subq.c.plan_count, 0).label("plan_count"),
+                func.coalesce(
+                    plan_subq.c.last_plan_active, Organization.created_at
+                ).label("last_active"),
+            )
+            .outerjoin(member_subq, member_subq.c.organization_id == Organization.id)
+            .outerjoin(team_subq, team_subq.c.organization_id == Organization.id)
+            .outerjoin(plan_subq, plan_subq.c.organization_id == Organization.id)
+        )
+
+        count_query = select(func.count()).select_from(Organization)
+
+        if search:
+            pattern = f"%{search.strip().lower()}%"
+            cond = or_(
+                func.lower(Organization.name).like(pattern),
+                func.lower(Organization.slug).like(pattern),
+            )
+            query = query.where(cond)
+            count_query = count_query.where(cond)
+
+        total = await self.session.scalar(count_query) or 0
+        rows = (
+            await self.session.execute(
+                query.order_by(Organization.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+
+        results = []
+        for org, member_cnt, team_cnt, plan_cnt, last_act in rows:
+            results.append(
+                {
+                    "id": org.id,
+                    "name": org.name,
+                    "slug": org.slug,
+                    "is_suspended": org.is_suspended,
+                    "created_at": org.created_at,
+                    "member_count": int(member_cnt),
+                    "team_count": int(team_cnt),
+                    "plan_count": int(plan_cnt),
+                    "last_active": last_act,
+                }
+            )
+        return results, total
+
+    async def get_organization_internal(
+        self, org_id: uuid.UUID
+    ) -> dict[str, Any]:
+        """Fetch single organization with aggregate metrics for platform staff."""
+        org = await self.get_organization(org_id)
+        member_cnt = (
+            await self.session.scalar(
+                select(func.count(Membership.id)).where(
+                    Membership.organization_id == org_id
+                )
+            )
+            or 0
+        )
+        team_cnt = (
+            await self.session.scalar(
+                select(func.count(Team.id)).where(Team.organization_id == org_id)
+            )
+            or 0
+        )
+        plan_cnt = (
+            await self.session.scalar(
+                select(func.count(Plan.id)).where(Plan.organization_id == org_id)
+            )
+            or 0
+        )
+        last_plan_act = await self.session.scalar(
+            select(func.max(func.coalesce(Plan.updated_at, Plan.created_at))).where(
+                Plan.organization_id == org_id
+            )
+        )
+
+        return {
+            "id": org.id,
+            "name": org.name,
+            "slug": org.slug,
+            "is_suspended": org.is_suspended,
+            "created_at": org.created_at,
+            "member_count": int(member_cnt),
+            "team_count": int(team_cnt),
+            "plan_count": int(plan_cnt),
+            "last_active": last_plan_act or org.created_at,
+        }
+
+    async def suspend_organization(self, org_id: uuid.UUID) -> Organization:
+        """Suspend organization. Locks out customer access."""
+        org = await self.get_organization(org_id)
+        org.is_suspended = True
+        await self.session.flush()
+        return org
+
+    async def reinstate_organization(self, org_id: uuid.UUID) -> Organization:
+        """Reinstate organization. Restores customer access."""
+        org = await self.get_organization(org_id)
+        org.is_suspended = False
+        await self.session.flush()
+        return org
+

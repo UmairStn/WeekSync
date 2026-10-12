@@ -404,3 +404,52 @@ async def test_plan_history_and_filters(async_client, session_factory):
     assert single_resp.status_code == 200
     assert single_resp.json()["id"] == plan_id
 
+
+@pytest.mark.asyncio
+async def test_get_my_plan_lifecycle(async_client, session_factory):
+    """Test GET /orgs/{org_id}/plans/my-plan returns null when absent, and plan when created."""
+    _user, token = await create_user_and_token(session_factory, first_name="Plan", last_name="Tester")
+    async_client.cookies.set("access_token", f"Bearer {token}")
+
+    org = (await async_client.post("/app/orgs", json={"name": "My Plan Org"})).json()
+    org_id = org["id"]
+    team = (await async_client.post(f"/app/orgs/{org_id}/teams", json={"name": "Alpha"})).json()
+    team_id = team["id"]
+
+    monday = get_upcoming_monday()
+
+    # 1. No plan exists for this week yet -> returns 200 OK with null (no 404 error)
+    empty_resp = await async_client.get(
+        f"/app/orgs/{org_id}/plans/my-plan?week_start_date={monday.isoformat()}"
+    )
+    assert empty_resp.status_code == 200
+    assert empty_resp.json() is None
+
+    # 2. Create a plan
+    create_resp = await async_client.post(
+        f"/app/orgs/{org_id}/plans",
+        json={
+            "team_id": team_id,
+            "week_start_date": monday.isoformat(),
+            "tasks": [
+                {
+                    "category": "main",
+                    "title": "Complete Sprint Planning",
+                    "why_it_matters": "Keeps team aligned",
+                }
+            ],
+        },
+    )
+    assert create_resp.status_code == 201
+
+    # 3. Query again -> returns 200 with the created plan
+    plan_resp = await async_client.get(
+        f"/app/orgs/{org_id}/plans/my-plan?week_start_date={monday.isoformat()}"
+    )
+    assert plan_resp.status_code == 200
+    data = plan_resp.json()
+    assert data is not None
+    assert data["status"] == "draft"
+    assert data["tasks"][0]["title"] == "Complete Sprint Planning"
+
+

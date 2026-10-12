@@ -1,7 +1,7 @@
 import pytest
 from faker import Faker
 
-from app.models import Membership, Organization, User
+from app.models import Membership, User
 from app.security import JWT_AUDIENCE_APP, generate_jwt_token, hash_password
 from app.services.orgs import OrganizationService
 
@@ -28,7 +28,7 @@ async def create_user_and_token(session_factory, first_name="Test", last_name="U
 @pytest.mark.asyncio
 async def test_admin_can_create_and_manage_teams(async_client, session_factory):
     """Test org owner/admin can create team, add members, and assign lead."""
-    owner, owner_token = await create_user_and_token(session_factory, first_name="Owner")
+    _owner, owner_token = await create_user_and_token(session_factory, first_name="Owner")
     member, _ = await create_user_and_token(session_factory, first_name="Member")
 
     async_client.cookies.set("access_token", f"Bearer {owner_token}")
@@ -91,8 +91,8 @@ async def test_member_cannot_create_or_modify_teams(async_client, session_factor
 @pytest.mark.asyncio
 async def test_cross_org_team_access_returns_404(async_client, session_factory):
     """Anti-Oracle Test: Accessing a team from another organization returns 404."""
-    user_a, token_a = await create_user_and_token(session_factory, first_name="Alice")
-    user_b, token_b = await create_user_and_token(session_factory, first_name="Bob")
+    _user_a, token_a = await create_user_and_token(session_factory, first_name="Alice")
+    _user_b, token_b = await create_user_and_token(session_factory, first_name="Bob")
 
     # Alice creates Org A and Team A
     async_client.cookies.set("access_token", f"Bearer {token_a}")
@@ -117,7 +117,7 @@ async def test_cross_org_team_access_returns_404(async_client, session_factory):
 @pytest.mark.asyncio
 async def test_user_can_belong_to_multiple_teams(async_client, session_factory):
     """Test a user can belong to more than one team in the same organization."""
-    owner, token = await create_user_and_token(session_factory, first_name="Owner")
+    _owner, token = await create_user_and_token(session_factory, first_name="Owner")
     dev, _ = await create_user_and_token(session_factory, first_name="Developer")
 
     async_client.cookies.set("access_token", f"Bearer {token}")

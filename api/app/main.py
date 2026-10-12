@@ -76,6 +76,8 @@ internal_api = FastAPI(
         {"name": "meta", "description": "Health and service metadata"},
         {"name": "auth", "description": "Authentication and session"},
         {"name": "users", "description": "User endpoints"},
+        {"name": "orgs", "description": "Organization management and suspension"},
+        {"name": "ai_usage", "description": "AI usage telemetry and analytics"},
     ],
     openapi_url=openapi_url,
     docs_url=docs_url,

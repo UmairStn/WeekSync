@@ -1,7 +1,7 @@
 import pytest
 from faker import Faker
 
-from app.models import Membership, Organization, User
+from app.models import Membership, User
 from app.security import JWT_AUDIENCE_APP, generate_jwt_token, hash_password
 from app.services.orgs import OrganizationService
 
@@ -28,7 +28,7 @@ async def create_user_and_token(session_factory, first_name="Test", last_name="U
 @pytest.mark.asyncio
 async def test_create_and_get_organization(async_client, session_factory):
     """Test creating an organization and fetching its details."""
-    user, token = await create_user_and_token(session_factory)
+    _user, token = await create_user_and_token(session_factory)
     async_client.cookies.set("access_token", f"Bearer {token}")
 
     # Create org
@@ -48,8 +48,8 @@ async def test_create_and_get_organization(async_client, session_factory):
 @pytest.mark.asyncio
 async def test_cross_org_access_returns_404(async_client, session_factory):
     """Anti-Oracle Test: Querying another org's ID returns 404, never 403."""
-    user_a, token_a = await create_user_and_token(session_factory, first_name="Alice")
-    user_b, token_b = await create_user_and_token(session_factory, first_name="Bob")
+    _user_a, token_a = await create_user_and_token(session_factory, first_name="Alice")
+    _user_b, token_b = await create_user_and_token(session_factory, first_name="Bob")
 
     # Alice creates Org A
     async_client.cookies.set("access_token", f"Bearer {token_a}")
@@ -67,7 +67,7 @@ async def test_cross_org_access_returns_404(async_client, session_factory):
 @pytest.mark.asyncio
 async def test_member_cannot_manage_roles_or_invites(async_client, session_factory):
     """Test non-admin members cannot manage roles or create invites (returns 403)."""
-    owner, owner_token = await create_user_and_token(session_factory, first_name="Owner")
+    owner, _owner_token = await create_user_and_token(session_factory, first_name="Owner")
     member, member_token = await create_user_and_token(session_factory, first_name="Member")
 
     # Owner creates org
@@ -96,7 +96,7 @@ async def test_member_cannot_manage_roles_or_invites(async_client, session_facto
 @pytest.mark.asyncio
 async def test_owner_can_manage_roles_and_invites(async_client, session_factory):
     """Test owner can update member roles and create invites."""
-    owner, owner_token = await create_user_and_token(session_factory, first_name="Owner")
+    _owner, owner_token = await create_user_and_token(session_factory, first_name="Owner")
     member, _ = await create_user_and_token(session_factory, first_name="Member")
 
     # Create org
@@ -144,8 +144,8 @@ async def test_suspended_org_locks_out_member(async_client, session_factory):
 @pytest.mark.asyncio
 async def test_create_and_accept_invite(async_client, session_factory):
     """Test end-to-end invite link creation and acceptance."""
-    owner, owner_token = await create_user_and_token(session_factory, first_name="Owner")
-    user, user_token = await create_user_and_token(session_factory, first_name="NewUser")
+    _owner, owner_token = await create_user_and_token(session_factory, first_name="Owner")
+    _user, user_token = await create_user_and_token(session_factory, first_name="NewUser")
 
     # Owner creates org and invite
     async_client.cookies.set("access_token", f"Bearer {owner_token}")

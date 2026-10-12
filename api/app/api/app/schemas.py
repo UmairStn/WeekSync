@@ -303,3 +303,30 @@ class BrainDumpRequest(Model):
         max_length=10000,
         description="Unstructured notes or scratchpad text",
     )
+
+
+class WeekSummaryResult(Model):
+    """AI-generated end-of-week summary."""
+
+    headline: str = Field(
+        ..., description="1-line summary of the week's outcome"
+    )
+    shipped: list[str] = Field(
+        ..., description="List of tasks/goals that were completed"
+    )
+    not_shipped: list[str] = Field(
+        ..., description="List of tasks/goals that were not completed"
+    )
+    why_not: str | None = Field(
+        None, description="AI's assessment of why unfinished items remain"
+    )
+    next_week_suggestion: str | None = Field(
+        None, description="Brief suggestion for carrying forward unfinished work"
+    )
+
+
+class WeekSummaryRequest(Model):
+    """Request for end-of-week summary generation."""
+
+    plan_id: UUID4 = Field(..., description="The plan to summarize")
+

@@ -8,9 +8,17 @@ from app.api.app.schemas import (
     BrainDumpResult,
     PlanReviewRequest,
     PlanReviewResult,
+    WeekSummaryRequest,
+    WeekSummaryResult,
 )
 from app.database import DBSession
-from app.services.ai import draft_plan_from_brain_dump, review_plan
+from app.exceptions import APIException
+from app.services.ai import (
+    draft_plan_from_brain_dump,
+    generate_week_summary,
+    review_plan,
+)
+from app.services.plans import PlanService
 
 router = APIRouter(tags=["ai"])
 
@@ -72,3 +80,52 @@ async def ai_brain_dump(
         user_id=tenant.user.id,
         request=data,
     )
+
+
+@router.post(
+    "/orgs/{org_id}/ai/week-summary",
+    response_model=WeekSummaryResult,
+    status_code=status.HTTP_200_OK,
+)
+async def ai_week_summary(
+    org_id: uuid.UUID,
+    data: WeekSummaryRequest,
+    tenant: RequireOrgMember,
+    session: DBSession,
+) -> WeekSummaryResult:
+    """Generate an AI End-of-Week Summary for an approved or completed plan.
+
+    Given the plan and which tasks were completed, drafts a short note on
+    what shipped, what didn't, and why.
+    """
+    service = PlanService(session)
+    plan = await service.get_plan(org_id=tenant.org.id, plan_id=data.plan_id)
+
+    if plan.status not in ("approved", "done"):
+        raise APIException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="PLAN_NOT_FINALIZED",
+            message=f"Week summary can only be generated for approved or completed plans (current status: {plan.status}).",
+        )
+
+    is_owner = plan.user_id == tenant.user.id
+    is_lead_or_admin = await service.check_is_lead_or_admin(
+        org_id=tenant.org.id,
+        team_id=plan.team_id,
+        user_id=tenant.user.id,
+        caller_role=tenant.role,
+    )
+    if not is_owner and not is_lead_or_admin:
+        raise APIException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            code="PERMISSION_DENIED",
+            message="You can only generate a week summary for your own plan or a team you lead.",
+        )
+
+    return await generate_week_summary(
+        session=session,
+        organization_id=tenant.org.id,
+        user_id=tenant.user.id,
+        plan=plan,
+    )
+

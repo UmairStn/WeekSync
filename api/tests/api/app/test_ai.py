@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from faker import Faker
@@ -12,12 +12,21 @@ from app.api.app.schemas import (
     FindingType,
     PlanFinding,
     PlanReviewResult,
+    WeekSummaryResult,
 )
 from app.models import AICallLog, Organization, User
 from app.security import JWT_AUDIENCE_APP, generate_jwt_token, hash_password
 from app.services import ai
 
 fake = Faker()
+
+
+def get_upcoming_monday() -> date:
+    today = datetime.now(tz=UTC).date()
+    days_ahead = (0 - today.weekday()) % 7
+    if days_ahead == 0:
+        days_ahead = 7
+    return today + timedelta(days=days_ahead)
 
 
 async def create_user_and_token(session_factory, first_name="Test", last_name="User"):
@@ -251,3 +260,145 @@ async def test_ai_suspended_org_forbidden(async_client, session_factory):
     )
     assert resp.status_code == 403
     assert resp.json()["detail"][0]["type"] == "organization_suspended"
+
+
+@pytest.mark.asyncio
+async def test_ai_week_summary_offline_success(async_client, session_factory):
+    """Test Week Summary Agent generates typed output and logs telemetry offline."""
+    user, token = await create_user_and_token(session_factory, first_name="Bob")
+    async_client.cookies.set("access_token", f"Bearer {token}")
+
+    # Create Org, Team, Plan
+    org_resp = await async_client.post("/app/orgs", json={"name": "Week Summary Org"})
+    assert org_resp.status_code == 201
+    org_id = org_resp.json()["id"]
+
+    team_resp = await async_client.post(
+        f"/app/orgs/{org_id}/teams", json={"name": "Core Team"}
+    )
+    assert team_resp.status_code == 201
+    team_id = team_resp.json()["id"]
+
+    monday = get_upcoming_monday()
+    plan_resp = await async_client.post(
+        f"/app/orgs/{org_id}/plans",
+        json={
+            "team_id": team_id,
+            "week_start_date": monday.isoformat(),
+            "tasks": [
+                {
+                    "category": "main",
+                    "title": "Complete stripe webhook integration",
+                    "why_it_matters": "Enables automatic renewal handling",
+                },
+                {
+                    "category": "sub_goal",
+                    "title": "Add retry handler with exponential backoff",
+                    "why_it_matters": None,
+                },
+                {
+                    "category": "gtm",
+                    "title": "Publish release notes in customer changelog",
+                    "why_it_matters": None,
+                },
+            ],
+        },
+    )
+    assert plan_resp.status_code == 201
+    plan_id = plan_resp.json()["id"]
+
+    # Submit and Approve
+    sub_resp = await async_client.post(f"/app/orgs/{org_id}/plans/{plan_id}/submit")
+    assert sub_resp.status_code == 200
+    app_resp = await async_client.post(f"/app/orgs/{org_id}/plans/{plan_id}/approve")
+    assert app_resp.status_code == 200
+
+    # Mark first task completed
+    task_id = plan_resp.json()["tasks"][0]["id"]
+    await async_client.patch(
+        f"/app/orgs/{org_id}/plans/{plan_id}/tasks/{task_id}",
+        json={"is_completed": True},
+    )
+
+    mock_summary = WeekSummaryResult(
+        headline="Delivered core billing webhooks; changelog deferred.",
+        shipped=["Complete stripe webhook integration"],
+        not_shipped=[
+            "Add retry handler with exponential backoff",
+            "Publish release notes in customer changelog",
+        ],
+        why_not="Webhook edge-case testing took longer than planned.",
+        next_week_suggestion="Prioritize retry handler and release documentation first.",
+    )
+
+    ai.TEST_OVERRIDE_MODEL = TestModel(custom_output_args=mock_summary.model_dump())
+    try:
+        resp = await async_client.post(
+            f"/app/orgs/{org_id}/ai/week-summary",
+            json={"plan_id": plan_id},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+
+        assert body["headline"] == "Delivered core billing webhooks; changelog deferred."
+        assert len(body["shipped"]) == 1
+        assert body["shipped"][0] == "Complete stripe webhook integration"
+        assert len(body["not_shipped"]) == 2
+        assert body["why_not"] == "Webhook edge-case testing took longer than planned."
+        assert body["next_week_suggestion"] is not None
+
+        # Verify telemetry in AICallLog
+        async with session_factory() as db:
+            result = await db.scalars(
+                select(AICallLog).where(
+                    AICallLog.organization_id == uuid.UUID(org_id),
+                    AICallLog.feature == "week_summary",
+                )
+            )
+            logs = list(result.all())
+            assert len(logs) == 1
+            assert logs[0].status == "success"
+            assert logs[0].user_id == user.id
+    finally:
+        ai.TEST_OVERRIDE_MODEL = None
+
+
+@pytest.mark.asyncio
+async def test_ai_week_summary_draft_plan_rejected(async_client, session_factory):
+    """Cannot generate week summary for a draft or unapproved plan."""
+    user, token = await create_user_and_token(session_factory, first_name="Charlie")
+    async_client.cookies.set("access_token", f"Bearer {token}")
+
+    org_resp = await async_client.post("/app/orgs", json={"name": "Draft Summary Org"})
+    org_id = org_resp.json()["id"]
+
+    team_resp = await async_client.post(
+        f"/app/orgs/{org_id}/teams", json={"name": "Draft Team"}
+    )
+    team_id = team_resp.json()["id"]
+
+    monday = get_upcoming_monday()
+    plan_resp = await async_client.post(
+        f"/app/orgs/{org_id}/plans",
+        json={
+            "team_id": team_id,
+            "week_start_date": monday.isoformat(),
+            "tasks": [
+                {
+                    "category": "main",
+                    "title": "Draft task title",
+                    "why_it_matters": "Draft impact",
+                }
+            ],
+        },
+    )
+    plan_id = plan_resp.json()["id"]
+
+    # Attempt to generate summary while in draft status
+    resp = await async_client.post(
+        f"/app/orgs/{org_id}/ai/week-summary",
+        json={"plan_id": plan_id},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["detail"][0]["type"] == "plan_not_finalized"
+

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 import uuid
 from typing import Any
@@ -15,11 +16,12 @@ from app.api.app.schemas import (
     BrainDumpResult,
     PlanReviewRequest,
     PlanReviewResult,
+    WeekSummaryResult,
 )
 from app.config import settings
 from app.exceptions import APIException
 from app.logging import logger
-from app.models import AICallLog
+from app.models import AICallLog, Plan
 
 PLAN_REVIEW_SYSTEM_PROMPT = """You are an exacting, high-agency engineering lead reviewing a weekly commitment for a high-velocity startup.
 Your standards:
@@ -38,6 +40,16 @@ Your standards:
 3. Produce 1 to 4 'gtm_goals' representing operational release enablement (e.g., analytics telemetry, documentation, feature flag rollout, customer changelog). If the input notes do not mention GTM, infer plausible operational release hygiene.
 4. Refuse generic activity titles like 'Work on feature' or 'Code'. Use checkable outcomes like 'Stripe webhook verifies signature and updates plan in DB'.
 """
+
+WEEK_SUMMARY_SYSTEM_PROMPT = """You are an engineering lead writing a concise end-of-week summary.
+Given a weekly plan with task completion status, produce:
+1. A 1-line headline of the week's outcome.
+2. A list of what shipped (completed tasks).
+3. A list of what did NOT ship (incomplete tasks).
+4. A brief, honest assessment of why unfinished items remain (scope creep, blockers, reprioritization, etc.).
+5. A short suggestion for what to carry forward or adjust next week.
+Be specific, not generic. Reference actual task titles."""
+
 
 
 TEST_OVERRIDE_MODEL: PydanticAIModel | str | None = None
@@ -72,14 +84,19 @@ def get_agent(
 
     # Use Google provider configured with settings
     try:
+        from pydantic_ai.models.google import GoogleModel
         from pydantic_ai.providers.google import GoogleProvider
 
-        provider = GoogleProvider(api_key=settings.GOOGLE_API_KEY)
+        os.environ["GOOGLE_API_KEY"] = settings.GOOGLE_API_KEY
+        os.environ["GEMINI_API_KEY"] = settings.GOOGLE_API_KEY
+
         model_name = settings.AI_MODEL
         if ":" in model_name:
             model_name = model_name.split(":", 1)[1]
-        model = provider(model_name)
-    except (ImportError, AttributeError, ValueError) as exc:
+
+        provider = GoogleProvider(api_key=settings.GOOGLE_API_KEY)
+        model = GoogleModel(model_name, provider=provider)
+    except (ImportError, AttributeError, ValueError, TypeError) as exc:
         logger.warning(
             f"Error configuring Google provider, falling back to model string: {exc}"
         )
@@ -182,7 +199,34 @@ async def review_plan(
 
     try:
         async with asyncio.timeout(15.0):
-            result = await agent.run(prompt)
+            try:
+                result = await agent.run(prompt)
+            except Exception as run_err:
+                err_str = str(run_err)
+                is_not_found = (
+                    "not found" in err_str.lower() or "404" in err_str
+                )
+                if (
+                    is_not_found
+                    and not override_model
+                    and settings.GOOGLE_API_KEY
+                ):
+                    logger.info(
+                        "Model not found in Gemini API, retrying with fallback"
+                    )
+                    from pydantic_ai.models.google import GoogleModel
+                    from pydantic_ai.providers.google import GoogleProvider
+
+                    prov = GoogleProvider(api_key=settings.GOOGLE_API_KEY)
+                    fb_model = GoogleModel("gemini-2.5-flash", provider=prov)
+                    fb_agent = Agent(
+                        model=fb_model,
+                        system_prompt=PLAN_REVIEW_SYSTEM_PROMPT,
+                        output_type=PlanReviewResult,
+                    )
+                    result = await fb_agent.run(prompt)
+                else:
+                    raise
             latency_ms = int((time.monotonic() - start_time) * 1000)
 
             # Extract token usage if available
@@ -269,6 +313,21 @@ async def review_plan(
                 message="AI request limit reached. Please wait a moment or proceed manually.",
             )
 
+        is_auth_error = (
+            "API_KEY_INVALID" in err_str
+            or "API key not valid" in err_str
+            or "PERMISSION_DENIED" in err_str
+        )
+        if is_auth_error:
+            raise APIException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                code="AI_AUTH_ERROR",
+                message=(
+                    "Google API key is invalid or unauthorized. "
+                    "Please verify your GOOGLE_API_KEY in api/.env."
+                ),
+            )
+
         logger.exception("AI plan review failure")
         raise APIException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -297,7 +356,34 @@ async def draft_plan_from_brain_dump(
 
     try:
         async with asyncio.timeout(15.0):
-            result = await agent.run(prompt)
+            try:
+                result = await agent.run(prompt)
+            except Exception as run_err:
+                err_str = str(run_err)
+                is_not_found = (
+                    "not found" in err_str.lower() or "404" in err_str
+                )
+                if (
+                    is_not_found
+                    and not override_model
+                    and settings.GOOGLE_API_KEY
+                ):
+                    logger.info(
+                        "Model not found in Gemini API, retrying with fallback"
+                    )
+                    from pydantic_ai.models.google import GoogleModel
+                    from pydantic_ai.providers.google import GoogleProvider
+
+                    prov = GoogleProvider(api_key=settings.GOOGLE_API_KEY)
+                    fb_model = GoogleModel("gemini-2.5-flash", provider=prov)
+                    fb_agent = Agent(
+                        model=fb_model,
+                        system_prompt=BRAIN_DUMP_SYSTEM_PROMPT,
+                        output_type=BrainDumpResult,
+                    )
+                    result = await fb_agent.run(prompt)
+                else:
+                    raise
             latency_ms = int((time.monotonic() - start_time) * 1000)
 
             prompt_tokens = None
@@ -373,9 +459,205 @@ async def draft_plan_from_brain_dump(
                 message="AI request limit reached. Please wait a moment or proceed manually.",
             )
 
+        is_auth_error = (
+            "API_KEY_INVALID" in err_str
+            or "API key not valid" in err_str
+            or "PERMISSION_DENIED" in err_str
+        )
+        if is_auth_error:
+            raise APIException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                code="AI_AUTH_ERROR",
+                message=(
+                    "Google API key is invalid or unauthorized. "
+                    "Please verify your GOOGLE_API_KEY in api/.env."
+                ),
+            )
+
         logger.exception("AI brain dump failure")
         raise APIException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             code="AI_SERVICE_ERROR",
             message="AI assistant is currently unavailable. Planning works normally without it.",
         )
+
+
+def _format_plan_for_summary(plan: Plan) -> str:
+    """Format an approved or done plan with task statuses for the week summary agent."""
+    user_name = "Team Member"
+    if plan.user:
+        user_name = f"{plan.user.first_name} {plan.user.last_name}".strip()
+
+    shipped_str = (
+        "Yes"
+        if plan.main_task_shipped is True
+        else ("No" if plan.main_task_shipped is False else "Not specified")
+    )
+    lines = [
+        f"Week Commencing: {plan.week_start_date}",
+        f"Member: {user_name}",
+        f"Plan Status: {plan.status}",
+        f"Main Goal Shipped Outcome: {shipped_str}",
+        "",
+        "Tasks and Completion Status:",
+    ]
+
+    for t in plan.tasks:
+        status_label = "[COMPLETED / SHIPPED]" if t.is_completed else "[NOT COMPLETED]"
+        cat_label = t.category.upper()
+        item_line = f"- {status_label} ({cat_label}): {t.title}"
+        if t.why_it_matters:
+            item_line += f" | Why it matters: {t.why_it_matters}"
+        lines.append(item_line)
+
+    return "\n".join(lines)
+
+
+async def generate_week_summary(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+    user_id: uuid.UUID,
+    plan: Plan,
+    override_model: PydanticAIModel | str | None = None,
+) -> WeekSummaryResult:
+    """Run End-of-Week Summary Agent to produce what shipped, what didn't, and why."""
+    feature = "week_summary"
+    start_time = time.monotonic()
+    prompt = (
+        "Please draft a concise end-of-week summary for the following weekly plan and results:\n\n"
+        f"{_format_plan_for_summary(plan)}"
+    )
+
+    agent = get_agent(
+        system_prompt=WEEK_SUMMARY_SYSTEM_PROMPT,
+        output_type=WeekSummaryResult,
+        override_model=override_model,
+    )
+
+    try:
+        async with asyncio.timeout(15.0):
+            try:
+                result = await agent.run(prompt)
+            except Exception as run_err:
+                err_str = str(run_err)
+                is_not_found = (
+                    "not found" in err_str.lower() or "404" in err_str
+                )
+                if (
+                    is_not_found
+                    and not override_model
+                    and settings.GOOGLE_API_KEY
+                ):
+                    logger.info(
+                        "Model not found in Gemini API, retrying with fallback"
+                    )
+                    from pydantic_ai.models.google import GoogleModel
+                    from pydantic_ai.providers.google import GoogleProvider
+
+                    prov = GoogleProvider(api_key=settings.GOOGLE_API_KEY)
+                    fb_model = GoogleModel("gemini-2.5-flash", provider=prov)
+                    fb_agent = Agent(
+                        model=fb_model,
+                        system_prompt=WEEK_SUMMARY_SYSTEM_PROMPT,
+                        output_type=WeekSummaryResult,
+                    )
+                    result = await fb_agent.run(prompt)
+                else:
+                    raise
+            latency_ms = int((time.monotonic() - start_time) * 1000)
+
+            prompt_tokens = None
+            completion_tokens = None
+            usage = getattr(result, "usage", None)
+            if callable(usage):
+                try:
+                    usage = usage()
+                except TypeError:
+                    usage = None
+            if usage is not None:
+                prompt_tokens = getattr(usage, "request_tokens", None) or getattr(
+                    usage, "prompt_tokens", None
+                )
+                completion_tokens = getattr(usage, "response_tokens", None) or getattr(
+                    usage, "completion_tokens", None
+                )
+
+            await log_ai_call(
+                session=session,
+                organization_id=organization_id,
+                user_id=user_id,
+                feature=feature,
+                status="success",
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                latency_ms=latency_ms,
+            )
+            return result.output
+
+    except TimeoutError:
+        latency_ms = int((time.monotonic() - start_time) * 1000)
+        await log_ai_call(
+            session=session,
+            organization_id=organization_id,
+            user_id=user_id,
+            feature=feature,
+            status="timeout",
+            latency_ms=latency_ms,
+            error_message="Week summary generation timed out after 15 seconds",
+        )
+        raise APIException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            code="AI_TIMEOUT",
+            message="AI assistant timed out. You can still review your week manually.",
+        )
+    except APIException:
+        raise
+    except Exception as exc:
+        latency_ms = int((time.monotonic() - start_time) * 1000)
+        err_str = str(exc)
+        is_429 = (
+            "429" in err_str
+            or "ResourceExhausted" in err_str
+            or "quota" in err_str.lower()
+        )
+        log_status = "rate_limited" if is_429 else "failure"
+
+        await log_ai_call(
+            session=session,
+            organization_id=organization_id,
+            user_id=user_id,
+            feature=feature,
+            status=log_status,
+            latency_ms=latency_ms,
+            error_message=err_str[:500],
+        )
+
+        if is_429:
+            raise APIException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                code="AI_RATE_LIMITED",
+                message="AI request limit reached. Please wait a moment or review manually.",
+            )
+
+        is_auth_error = (
+            "API_KEY_INVALID" in err_str
+            or "API key not valid" in err_str
+            or "PERMISSION_DENIED" in err_str
+        )
+        if is_auth_error:
+            raise APIException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                code="AI_AUTH_ERROR",
+                message=(
+                    "Google API key is invalid or unauthorized. "
+                    "Please verify your GOOGLE_API_KEY in api/.env."
+                ),
+            )
+
+        logger.exception("AI week summary failure")
+        raise APIException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            code="AI_SERVICE_ERROR",
+            message="AI assistant is currently unavailable. Planning works normally without it.",
+        )
+

@@ -16,7 +16,6 @@ from app.api.app.schemas import (
     TeamWeekResponse,
 )
 from app.database import DBSession
-from app.exceptions import ResourceNotFoundException
 from app.models import Plan
 from app.services.plans import PlanService
 
@@ -86,14 +85,14 @@ async def create_or_update_plan(
 
 @router.get(
     "/orgs/{org_id}/plans/my-plan",
-    response_model=PlanResponse,
+    response_model=PlanResponse | None,
 )
 async def get_my_plan(
     org_id: uuid.UUID,
     week_start_date: date,
     tenant: RequireOrgMember,
     session: DBSession,
-) -> PlanResponse:
+) -> PlanResponse | None:
     """Fetch the caller's plan for a specified Monday week."""
     service = PlanService(session)
     plan = await service.get_user_plan_for_week(
@@ -102,7 +101,7 @@ async def get_my_plan(
         week_start_date=week_start_date,
     )
     if not plan:
-        raise ResourceNotFoundException("No plan found for the specified week")
+        return None
     return map_plan_to_response(plan)
 
 

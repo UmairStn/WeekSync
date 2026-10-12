@@ -1,8 +1,8 @@
 import pytest
 from faker import Faker
 
-from app.models import Membership, Organization, User
-from app.security import JWT_AUDIENCE_APP, generate_jwt_token, hash_password
+from app.models import User
+from app.security import hash_password
 from app.services.invites import InviteService
 from app.services.orgs import OrganizationService
 

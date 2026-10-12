@@ -1,4 +1,5 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
+import { NotFoundComponent } from "@/components/NotFound";
 import appCss from "@/styles.css?url";
 
 // Document shell for every page. `head` replaces the Next.js `metadata`
@@ -8,8 +9,33 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Launchbase" },
-      { name: "description", content: "Launchbase landing page." },
+      { title: "WeekSync — The weekly cadence for high-velocity teams" },
+      {
+        name: "description",
+        content:
+          "Replace status meetings with high-signal weekly plans, AI-critiqued commitments, and Friday shipping rollups.",
+      },
+      {
+        property: "og:title",
+        content: "WeekSync — The weekly cadence for high-velocity teams",
+      },
+      {
+        property: "og:description",
+        content:
+          "Replace status meetings with high-signal weekly plans, AI-critiqued commitments, and Friday shipping rollups.",
+      },
+      { property: "og:type", content: "website" },
+      { property: "og:image", content: "/icon.svg" },
+      { name: "twitter:card", content: "summary_large_image" },
+      {
+        name: "twitter:title",
+        content: "WeekSync — Weekly alignment for teams that ship",
+      },
+      {
+        name: "twitter:description",
+        content:
+          "High-signal Monday commitments, AI plan reviews that flag fuzzy tasks, and transparent team rollups.",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -18,15 +44,19 @@ export const Route = createRootRoute({
     ],
   }),
   shellComponent: RootDocument,
+  notFoundComponent: NotFoundComponent,
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body className="antialiased">
+      <body
+        className="antialiased min-h-screen bg-background text-foreground"
+        suppressHydrationWarning
+      >
         {children}
         <Scripts />
       </body>

@@ -19,8 +19,8 @@ export function useAuth() {
   } = useGetCurrentUser({
     query: {
       retry: false,
-      staleTime: 0,
-      gcTime: 0,
+      staleTime: 60 * 1000,
+      refetchOnWindowFocus: false,
     },
   });
 

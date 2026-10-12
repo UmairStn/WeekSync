@@ -3,6 +3,7 @@ import { QueryProvider } from "@/components/QueryProvider";
 import { UserProvider } from "@/contexts/user-context";
 import { TenantProvider } from "@/contexts/tenant-context";
 import { Toaster } from "@/components/ui/sonner";
+import { NotFoundComponent } from "@/components/NotFound";
 import appCss from "@/styles.css?url";
 
 // Document shell for the whole app. In SPA mode this is what gets prerendered
@@ -26,15 +27,16 @@ export const Route = createRootRoute({
     ],
   }),
   shellComponent: RootDocument,
+  notFoundComponent: NotFoundComponent,
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body className="antialiased">
+      <body className="antialiased" suppressHydrationWarning>
         <QueryProvider>
           <UserProvider>
             <TenantProvider>

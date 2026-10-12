@@ -96,24 +96,34 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const isOwner = currentOrg?.my_role === "owner";
   const isAdmin = isOwner || currentOrg?.my_role === "admin";
 
-  // 2. Teams state for the active organization
-  const { data: teamsData, isLoading: isLoadingTeams } = useListTeams(
-    currentOrgId,
-    {
-      query: {
-        enabled: !!user && !!currentOrgId,
-      },
-    }
-  );
-
-  const teams = useMemo(() => teamsData ?? [], [teamsData]);
-
   const [currentTeamId, setCurrentTeamIdState] = useState<string>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("weeksync_current_team_id") || "";
     }
     return "";
   });
+
+  const effectiveOrgId = user ? currentOrgId : "";
+  const effectiveTeamId = user ? currentTeamId : "";
+
+  useEffect(() => {
+    if (!user) {
+      setCurrentOrgIdState("");
+      setCurrentTeamIdState("");
+    }
+  }, [user]);
+
+  // 2. Teams state for the active organization
+  const { data: teamsData, isLoading: isLoadingTeams } = useListTeams(
+    effectiveOrgId,
+    {
+      query: {
+        enabled: !!user && !!effectiveOrgId,
+      },
+    }
+  );
+
+  const teams = useMemo(() => teamsData ?? [], [teamsData]);
 
   useEffect(() => {
     if (teams.length > 0) {
@@ -187,7 +197,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       value={{
         orgs,
         currentOrg,
-        currentOrgId,
+        currentOrgId: effectiveOrgId,
         setCurrentOrgId,
         isLoadingOrgs,
         isOwner,
@@ -195,7 +205,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
         teams,
         currentTeam,
-        currentTeamId,
+        currentTeamId: effectiveTeamId,
         setCurrentTeamId,
         isLoadingTeams,
         isTeamLead,

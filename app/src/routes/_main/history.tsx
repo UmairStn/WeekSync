@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { format, parseISO } from "date-fns";
-import { History, Calendar, Flag, ArrowRight, Clock } from "lucide-react";
+import { History, Calendar, ArrowRight, Clock, Target } from "lucide-react";
 import { useTenant } from "@/contexts/tenant-context";
+import { useCurrentUser } from "@/contexts/user-context";
 import { useListPlanHistory } from "@/api/endpoints/plans/plans";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,8 @@ export const Route = createFileRoute("/_main/history")({
 });
 
 function HistoryPage() {
+  const navigate = useNavigate();
+  const user = useCurrentUser();
   const { currentOrgId, currentTeam, currentTeamId, setSelectedMonday } =
     useTenant();
 
@@ -19,7 +22,7 @@ function HistoryPage() {
     { team_id: currentTeamId },
     {
       query: {
-        enabled: !!currentOrgId && !!currentTeamId,
+        enabled: !!user && !!currentOrgId && !!currentTeamId,
       },
     }
   );
@@ -27,21 +30,21 @@ function HistoryPage() {
   const plans = history ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-16">
       {/* Header */}
-      <div className="border-b border-border pb-5 space-y-1">
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-xs space-y-1.5">
         <div className="flex items-center gap-2">
-          <History className="size-4 text-foreground" strokeWidth={2} />
+          <History className="size-4 text-primary" strokeWidth={2} />
           <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
             Archive &bull; {currentTeam?.name}
           </span>
         </div>
-        <h1 className="font-serif text-2xl font-normal tracking-tight text-foreground">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
           Weekly Plan History
         </h1>
-        <p className="text-xs text-muted-foreground">
-          Browse past weekly plans, shipped outcomes, and track consistency over
-          time.
+        <p className="text-xs text-muted-foreground max-w-xl leading-relaxed">
+          Review historical commitments, verify shipped deliverables, and track
+          consistency over time.
         </p>
       </div>
 
@@ -65,12 +68,12 @@ function HistoryPage() {
           return (
             <div
               key={plan.id}
-              className="rounded-xl border border-border bg-card p-5 space-y-3 transition-colors hover:border-foreground/30"
+              className="group rounded-2xl border border-border bg-card p-5 space-y-3.5 transition-all hover:border-foreground/30 hover:shadow-xs"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/70 pb-3">
                 <div className="flex items-center gap-2.5">
                   <Calendar className="size-4 text-muted-foreground" />
-                  <span className="font-mono text-xs font-semibold text-foreground">
+                  <span className="font-mono text-xs font-bold text-foreground">
                     {weekRange}
                   </span>
                 </div>
@@ -78,14 +81,15 @@ function HistoryPage() {
                 <div className="flex items-center gap-2">
                   <span
                     className={cn(
-                      "rounded-full px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider font-medium",
+                      "rounded-full px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider font-semibold border",
                       plan.status === "approved" &&
-                        "bg-[#EDF3EC] text-[#346538]",
+                        "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
                       plan.status === "submitted" &&
-                        "bg-[#E1F3FE] text-[#1F6C9F]",
-                      plan.status === "draft" && "bg-[#FBF3DB] text-[#956400]",
+                        "bg-secondary text-secondary-foreground border border-secondary",
+                      plan.status === "draft" &&
+                        "bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20",
                       plan.status === "sent_back" &&
-                        "bg-[#FDEBEC] text-[#9F2F2D]"
+                        "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
                     )}
                   >
                     {plan.status.replace("_", " ")}
@@ -94,13 +98,13 @@ function HistoryPage() {
                   {plan.main_task_shipped !== null && (
                     <span
                       className={cn(
-                        "rounded-full px-2 py-0.5 text-[10px] font-mono",
+                        "rounded-full px-2.5 py-0.5 text-[10px] font-mono border font-semibold",
                         plan.main_task_shipped
-                          ? "bg-[#EDF3EC] text-[#346538]"
-                          : "bg-[#FDEBEC] text-[#9F2F2D]"
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                          : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
                       )}
                     >
-                      {plan.main_task_shipped ? "Goal Shipped" : "Goal Missed"}
+                      {plan.main_task_shipped ? "Shipped 🎉" : "Missed"}
                     </span>
                   )}
                 </div>
@@ -108,15 +112,15 @@ function HistoryPage() {
 
               {/* Main task summary */}
               {mainTask && (
-                <div className="space-y-1">
+                <div className="rounded-xl border border-border/80 bg-background/60 p-3.5 space-y-1">
                   <div className="flex items-start gap-2">
-                    <Flag className="size-3.5 mt-0.5 text-foreground shrink-0" />
+                    <Target className="size-3.5 mt-0.5 text-foreground shrink-0" />
                     <div>
                       <p className="text-xs font-semibold text-foreground">
                         {mainTask.title}
                       </p>
                       {mainTask.why_it_matters && (
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
                           {mainTask.why_it_matters}
                         </p>
                       )}
@@ -126,21 +130,21 @@ function HistoryPage() {
               )}
 
               {/* Footer info & jump button */}
-              <div className="flex items-center justify-between pt-1 text-[11px] font-mono text-muted-foreground">
+              <div className="flex items-center justify-between pt-1 text-xs font-mono text-muted-foreground">
                 <span>
-                  {completedTasks}/{totalTasks} tasks completed
+                  {completedTasks}/{totalTasks} deliverables completed
                 </span>
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="xs"
                   onClick={() => {
                     setSelectedMonday(plan.week_start_date);
-                    // navigate to dashboard
-                    window.location.href = "/dashboard";
+                    navigate({ to: "/dashboard" });
                   }}
-                  className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                  className="gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
                 >
-                  View Plan <ArrowRight className="size-3 ml-1" />
+                  <span>Open Week</span>
+                  <ArrowRight className="size-3" />
                 </Button>
               </div>
             </div>
@@ -148,17 +152,17 @@ function HistoryPage() {
         })}
 
         {plans.length === 0 && (
-          <div className="rounded-xl border border-border bg-card p-12 text-center text-xs text-muted-foreground space-y-2">
+          <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center text-xs text-muted-foreground space-y-2">
             <Clock
               className="mx-auto size-8 text-muted-foreground"
               strokeWidth={1.5}
             />
-            <p className="font-medium text-foreground">
-              No past plans recorded yet
+            <p className="font-semibold text-foreground">
+              No historical plans found
             </p>
-            <p className="text-muted-foreground">
-              Once you start creating and completing weekly plans, your history
-              will appear here.
+            <p className="text-muted-foreground max-w-sm mx-auto">
+              Once you start creating and submitting weekly commitments, your
+              plan archive will appear here.
             </p>
           </div>
         )}

@@ -77,35 +77,41 @@ export const GetMyPlanQueryParams = zod.object({
   week_start_date: zod.string().date(),
 });
 
-export const GetMyPlanResponse = zod.object({
-  id: zod.string(),
-  organization_id: zod.string(),
-  team_id: zod.string(),
-  user_id: zod.string(),
-  user_name: zod.union([zod.string(), zod.null()]).optional(),
-  week_start_date: zod.string().date(),
-  status: zod.string(),
-  review_comment: zod.union([zod.string(), zod.null()]),
-  reviewed_by_user_id: zod.union([zod.string(), zod.null()]),
-  reviewed_at: zod.union([zod.string().datetime({ offset: true }), zod.null()]),
-  main_task_shipped: zod.union([zod.boolean(), zod.null()]),
-  tasks: zod.array(
-    zod.object({
-      id: zod.string(),
-      plan_id: zod.string(),
-      category: zod.string(),
-      title: zod.string(),
-      why_it_matters: zod.union([zod.string(), zod.null()]),
-      is_completed: zod.boolean(),
-      sort_order: zod.number().int(),
-      created_at: zod.string().datetime({ offset: true }),
-    })
-  ),
-  created_at: zod.string().datetime({ offset: true }),
-  updated_at: zod
-    .union([zod.string().datetime({ offset: true }), zod.null()])
-    .optional(),
-});
+export const GetMyPlanResponse = zod.union([
+  zod.object({
+    id: zod.string(),
+    organization_id: zod.string(),
+    team_id: zod.string(),
+    user_id: zod.string(),
+    user_name: zod.union([zod.string(), zod.null()]).optional(),
+    week_start_date: zod.string().date(),
+    status: zod.string(),
+    review_comment: zod.union([zod.string(), zod.null()]),
+    reviewed_by_user_id: zod.union([zod.string(), zod.null()]),
+    reviewed_at: zod.union([
+      zod.string().datetime({ offset: true }),
+      zod.null(),
+    ]),
+    main_task_shipped: zod.union([zod.boolean(), zod.null()]),
+    tasks: zod.array(
+      zod.object({
+        id: zod.string(),
+        plan_id: zod.string(),
+        category: zod.string(),
+        title: zod.string(),
+        why_it_matters: zod.union([zod.string(), zod.null()]),
+        is_completed: zod.boolean(),
+        sort_order: zod.number().int(),
+        created_at: zod.string().datetime({ offset: true }),
+      })
+    ),
+    created_at: zod.string().datetime({ offset: true }),
+    updated_at: zod
+      .union([zod.string().datetime({ offset: true }), zod.null()])
+      .optional(),
+  }),
+  zod.null(),
+]);
 
 /**
  * List historical plans for an organization, optionally filtered by user or team.

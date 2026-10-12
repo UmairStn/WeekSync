@@ -12,6 +12,9 @@ import {
   Building,
   ArrowRight,
   ShieldCheck,
+  Sparkles,
+  Users2,
+  Target,
 } from "lucide-react";
 import { auth } from "@/api/endpoints/auth/auth";
 import { customInstance, ApiError } from "@/lib/api-client";
@@ -62,10 +65,53 @@ const signupSchema = z
 type LoginFormData = z.infer<typeof loginSchema>;
 type SignupFormData = z.infer<typeof signupSchema>;
 
-export const Route = createFileRoute("/login")({ component: Login });
+export const Route = createFileRoute("/login")({
+  validateSearch: (
+    search: Record<string, unknown>
+  ): { mode?: "login" | "signup" } => {
+    return {
+      mode: search["mode"] === "signup" ? "signup" : undefined,
+    };
+  },
+  component: Login,
+});
+
+const DEMO_PERSONAS = [
+  {
+    role: "Org Owner",
+    name: "Acme Owner",
+    email: "owner@acme.com",
+    badge: "Full Access",
+    desc: "Organization settings, member management, teams",
+  },
+  {
+    role: "Team Lead",
+    name: "Acme Lead",
+    email: "lead@acme.com",
+    badge: "Approvals",
+    desc: "Team weekly view, plan reviews & approvals",
+  },
+  {
+    role: "Team Member",
+    name: "Acme Member",
+    email: "member@acme.com",
+    badge: "Planning",
+    desc: "Single main goal, sub-goals, AI plan review",
+  },
+  {
+    role: "Second Org",
+    name: "Globex Owner",
+    email: "owner@globex.com",
+    badge: "Tenant B",
+    desc: "Cross-tenant isolation & security boundary",
+  },
+];
 
 function Login() {
-  const [tab, setTab] = useState<"login" | "signup">("login");
+  const search = Route.useSearch();
+  const [tab, setTab] = useState<"login" | "signup">(() =>
+    search["mode"] === "signup" ? "signup" : "login"
+  );
   const [authError, setAuthError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
@@ -100,26 +146,21 @@ function Login() {
       queryClient.clear();
       navigate({ to: "/dashboard" });
     },
-    onError: (error: unknown) => {
-      if (!(error instanceof ApiError)) {
-        setAuthError(
-          "Network error. Please check your connection and try again."
-        );
-        return;
-      }
-      if (error.status === 401) {
-        setAuthError("Incorrect email or password.");
-      } else if (error.status === 403) {
-        setAuthError("This organization is suspended. Please contact support.");
+    onError: (err: unknown) => {
+      if (err instanceof ApiError) {
+        setAuthError(err.message || "Invalid email or password");
       } else {
-        setAuthError("Authentication failed. Please verify credentials.");
+        setAuthError("Failed to authenticate. Please check your credentials.");
       }
     },
   });
 
   const signupMutation = useMutation({
     mutationFn: async (data: SignupFormData) => {
-      return customInstance("/signup", {
+      return customInstance<{
+        user: { id: string; email: string };
+        organization_id: string;
+      }>("/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -127,9 +168,10 @@ function Login() {
           password: data.password,
           first_name: data.first_name,
           last_name: data.last_name,
-          create_org_name:
-            data.org_mode === "create" ? data.create_org_name : null,
-          invite_token: data.org_mode === "join" ? data.invite_token : null,
+          org_name:
+            data.org_mode === "create" ? data.create_org_name : undefined,
+          invite_token:
+            data.org_mode === "join" ? data.invite_token : undefined,
         }),
       });
     },
@@ -138,14 +180,11 @@ function Login() {
       queryClient.clear();
       navigate({ to: "/dashboard" });
     },
-    onError: (error: unknown) => {
-      if (error instanceof ApiError) {
-        const errorData = error.data as { detail?: string };
-        setAuthError(
-          errorData?.detail || "Sign-up failed. Please check your inputs."
-        );
+    onError: (err: unknown) => {
+      if (err instanceof ApiError) {
+        setAuthError(err.message || "Failed to create account");
       } else {
-        setAuthError("Sign-up failed. Please try again.");
+        setAuthError("Sign up failed. Please check your details.");
       }
     },
   });
@@ -158,59 +197,69 @@ function Login() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#FBFBFA] dark:bg-background p-6">
-      <div className="w-full max-w-md space-y-6">
-        {/* Brand Header */}
-        <div className="flex flex-col items-center text-center space-y-3">
-          <Logo className="h-8" />
-          <h1 className="font-serif text-3xl font-normal tracking-tight text-foreground">
-            Align your week. Ship what matters.
-          </h1>
-          <p className="text-xs text-muted-foreground max-w-xs">
-            Weekly planning built around real execution: single main goals,
-            clear business justifications, and team synchrony.
-          </p>
+    <div className="min-h-[100dvh] w-full grid lg:grid-cols-12 bg-background text-foreground">
+      {/* LEFT COLUMN: Modern Authentication Panel */}
+      <div className="lg:col-span-6 xl:col-span-5 flex flex-col justify-between px-6 sm:px-12 py-10 lg:py-14 border-r border-border">
+        {/* Top Branding Lockup */}
+        <div className="flex items-center justify-between">
+          <Logo className="h-7 w-auto" />
+          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground px-2.5 py-1 rounded-full border border-border bg-card">
+            v1.0 SaaS
+          </span>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex rounded-lg border border-border bg-card p-1">
-          <button
-            type="button"
-            onClick={() => {
-              setTab("login");
-              setAuthError("");
-            }}
-            className={cn(
-              "flex-1 rounded-md py-1.5 text-xs font-medium transition-all",
-              tab === "login"
-                ? "bg-foreground text-background font-semibold"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setTab("signup");
-              setAuthError("");
-            }}
-            className={cn(
-              "flex-1 rounded-md py-1.5 text-xs font-medium transition-all",
-              tab === "signup"
-                ? "bg-foreground text-background font-semibold"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Create Account
-          </button>
-        </div>
+        {/* Center: Auth Card & Form */}
+        <div className="my-auto w-full max-w-md mx-auto py-8">
+          <div className="mb-6 space-y-1.5">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+              {tab === "login" ? "Welcome back" : "Create an account"}
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              {tab === "login"
+                ? "Align your week with verifiable outcomes and lead sign-off."
+                : "Join your team's weekly commitment cadence in seconds."}
+            </p>
+          </div>
 
-        {/* Card Form */}
-        <div className="rounded-xl border border-border bg-card p-6 shadow-xs">
+          {/* Tab Switcher Pills */}
+          <div className="flex rounded-full border border-border bg-muted/30 p-1 mb-6">
+            <button
+              type="button"
+              onClick={() => {
+                setTab("login");
+                setAuthError("");
+              }}
+              className={cn(
+                "flex-1 rounded-full py-1.5 text-xs font-medium transition-all cursor-pointer",
+                tab === "login"
+                  ? "bg-foreground text-background font-semibold shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTab("signup");
+                setAuthError("");
+              }}
+              className={cn(
+                "flex-1 rounded-full py-1.5 text-xs font-medium transition-all cursor-pointer",
+                tab === "signup"
+                  ? "bg-foreground text-background font-semibold shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Create Account
+            </button>
+          </div>
+
+          {/* Error Banner */}
           {authError && (
-            <div className="mb-4 rounded-md border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
-              {authError}
+            <div className="mb-4 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive flex items-start gap-2">
+              <span className="font-semibold shrink-0">Error:</span>
+              <span className="leading-tight">{authError}</span>
             </div>
           )}
 
@@ -232,13 +281,10 @@ function Login() {
                       </FormLabel>
                       <FormControl>
                         <div className="relative">
-                          <Mail
-                            className="absolute left-3 top-2.5 size-4 text-muted-foreground"
-                            strokeWidth={2}
-                          />
+                          <Mail className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
                           <Input
                             placeholder="name@company.com"
-                            className="pl-9 text-xs"
+                            className="pl-9 text-xs h-9"
                             {...field}
                           />
                         </div>
@@ -253,30 +299,35 @@ function Login() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs font-medium">
-                        Password
-                      </FormLabel>
+                      <div className="flex items-center justify-between">
+                        <FormLabel className="text-xs font-medium">
+                          Password
+                        </FormLabel>
+                        <span className="text-[11px] font-mono text-muted-foreground">
+                          Default: Password123!
+                        </span>
+                      </div>
                       <FormControl>
                         <div className="relative">
-                          <Lock
-                            className="absolute left-3 top-2.5 size-4 text-muted-foreground"
-                            strokeWidth={2}
-                          />
+                          <Lock className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
                           <Input
                             type={showPassword ? "text" : "password"}
                             placeholder="••••••••"
-                            className="pl-9 pr-9 text-xs"
+                            className="pl-9 pr-9 text-xs h-9"
                             {...field}
                           />
                           <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
+                            className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                            aria-label={
+                              showPassword ? "Hide password" : "Show password"
+                            }
                           >
                             {showPassword ? (
-                              <EyeOff className="size-4" strokeWidth={2} />
+                              <EyeOff className="size-4" />
                             ) : (
-                              <Eye className="size-4" strokeWidth={2} />
+                              <Eye className="size-4" />
                             )}
                           </button>
                         </div>
@@ -289,9 +340,11 @@ function Login() {
                 <Button
                   type="submit"
                   disabled={loginMutation.isPending}
-                  className="w-full bg-foreground text-background hover:bg-foreground/90 text-xs font-semibold h-9"
+                  className="w-full h-10 rounded-full text-xs font-semibold shadow-xs cursor-pointer"
                 >
-                  {loginMutation.isPending ? "Authenticating..." : "Sign In"}
+                  {loginMutation.isPending
+                    ? "Authenticating..."
+                    : "Sign In to WeekSync"}
                 </Button>
               </form>
             </Form>
@@ -315,7 +368,7 @@ function Login() {
                         <FormControl>
                           <Input
                             placeholder="Umair"
-                            className="text-xs"
+                            className="text-xs h-9"
                             {...field}
                           />
                         </FormControl>
@@ -323,7 +376,6 @@ function Login() {
                       </FormItem>
                     )}
                   />
-
                   <FormField
                     control={signupForm.control}
                     name="last_name"
@@ -334,8 +386,8 @@ function Login() {
                         </FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Stone"
-                            className="text-xs"
+                            placeholder="Khan"
+                            className="text-xs h-9"
                             {...field}
                           />
                         </FormControl>
@@ -351,15 +403,17 @@ function Login() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs font-medium">
-                        Email
+                        Work Email
                       </FormLabel>
                       <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="umair@example.com"
-                          className="text-xs"
-                          {...field}
-                        />
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                          <Input
+                            placeholder="name@company.com"
+                            className="pl-9 text-xs h-9"
+                            {...field}
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage className="text-[11px]" />
                     </FormItem>
@@ -375,20 +429,26 @@ function Login() {
                         Password (min 8 chars)
                       </FormLabel>
                       <FormControl>
-                        <Input
-                          type="password"
-                          placeholder="••••••••"
-                          className="text-xs"
-                          {...field}
-                        />
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                          <Input
+                            type="password"
+                            placeholder="••••••••"
+                            className="pl-9 text-xs h-9"
+                            {...field}
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage className="text-[11px]" />
                     </FormItem>
                   )}
                 />
 
-                {/* Organization mode selection */}
+                {/* Organization Selection Mode */}
                 <div className="space-y-2 pt-1 border-t border-border">
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block">
+                    Organization Workspace
+                  </span>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -397,17 +457,14 @@ function Login() {
                         signupForm.setValue("org_mode", "create");
                       }}
                       className={cn(
-                        "flex-1 rounded-md border p-2 text-left text-xs transition-colors",
+                        "flex-1 rounded-md border p-2 text-left text-xs transition-colors cursor-pointer",
                         orgMode === "create"
-                          ? "border-foreground bg-muted font-medium text-foreground"
+                          ? "border-primary bg-primary/10 text-primary font-medium"
                           : "border-border text-muted-foreground hover:bg-muted/40"
                       )}
                     >
-                      <Building
-                        className="size-3.5 mb-1 text-foreground"
-                        strokeWidth={2}
-                      />
-                      <div>Create New Org</div>
+                      <Building className="size-3.5 mb-1" />
+                      <div>Create Org</div>
                     </button>
                     <button
                       type="button"
@@ -416,16 +473,13 @@ function Login() {
                         signupForm.setValue("org_mode", "join");
                       }}
                       className={cn(
-                        "flex-1 rounded-md border p-2 text-left text-xs transition-colors",
+                        "flex-1 rounded-md border p-2 text-left text-xs transition-colors cursor-pointer",
                         orgMode === "join"
-                          ? "border-foreground bg-muted font-medium text-foreground"
+                          ? "border-primary bg-primary/10 text-primary font-medium"
                           : "border-border text-muted-foreground hover:bg-muted/40"
                       )}
                     >
-                      <ShieldCheck
-                        className="size-3.5 mb-1 text-foreground"
-                        strokeWidth={2}
-                      />
+                      <ShieldCheck className="size-3.5 mb-1" />
                       <div>Join via Invite</div>
                     </button>
                   </div>
@@ -442,7 +496,7 @@ function Login() {
                           <FormControl>
                             <Input
                               placeholder="Acme Engineering"
-                              className="text-xs"
+                              className="text-xs h-9"
                               {...field}
                             />
                           </FormControl>
@@ -461,8 +515,8 @@ function Login() {
                           </FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="Paste token here"
-                              className="text-xs font-mono"
+                              placeholder="Paste 64-char invite token"
+                              className="text-xs font-mono h-9"
                               {...field}
                             />
                           </FormControl>
@@ -476,84 +530,130 @@ function Login() {
                 <Button
                   type="submit"
                   disabled={signupMutation.isPending}
-                  className="w-full bg-foreground text-background hover:bg-foreground/90 text-xs font-semibold h-9 mt-2"
+                  className="w-full h-10 rounded-full text-xs font-semibold shadow-xs cursor-pointer"
                 >
                   {signupMutation.isPending
-                    ? "Creating account..."
-                    : "Complete Sign Up"}
+                    ? "Creating Account..."
+                    : "Create Account & Get Started"}
                 </Button>
               </form>
             </Form>
           )}
+
+          {/* Quick Demo Access Bar (Mobile Only) */}
+          <div className="mt-8 lg:hidden rounded-xl border border-border bg-card p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+                1-Click Demo Sandbox
+              </span>
+              <span className="text-[10px] font-mono text-muted-foreground">
+                Password123!
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {DEMO_PERSONAS.map((p) => (
+                <button
+                  key={p.email}
+                  type="button"
+                  onClick={() => handleQuickLogin(p.email)}
+                  className="rounded-md border border-border p-2 text-left hover:bg-muted transition-colors cursor-pointer"
+                >
+                  <p className="font-medium text-foreground truncate">
+                    {p.name}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    {p.role}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Quick Demo Credentials Switcher */}
-        <div className="rounded-xl border border-border bg-card p-4 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-              Instant Demo Access
-            </span>
-            <span className="text-[10px] font-mono text-muted-foreground">
-              Pass: Password123!
-            </span>
+        {/* Footer info */}
+        <div className="text-[11px] font-mono text-muted-foreground flex items-center justify-between border-t border-border pt-4">
+          <span>WeekSync Enterprise</span>
+          <span>FastAPI + TanStack Start</span>
+        </div>
+      </div>
+
+      {/* RIGHT COLUMN: Editorial Showcase & Interactive Sandbox Picker */}
+      <div className="lg:col-span-6 xl:col-span-7 bg-muted/30 p-8 lg:p-14 hidden lg:flex flex-col justify-between border-l border-border/60">
+        {/* Top Product Value Pill */}
+        <div className="flex items-center gap-2">
+          <div className="size-2 rounded-full bg-foreground" />
+          <span className="font-mono text-xs text-muted-foreground">
+            Continuous Engineering Commitment Protocol
+          </span>
+        </div>
+
+        {/* Center: Interactive Demo Sandbox Selector */}
+        <div className="max-w-lg space-y-6">
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+              Instant Evaluation Sandbox
+            </h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Select any pre-seeded persona to test end-to-end multi-tenant
+              isolation, role checks, weekly plan authoring, and lead review
+              flows with zero typing.
+            </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("owner@acme.com")}
-              className="flex items-center justify-between rounded-md border border-border p-2 text-left hover:bg-muted/60 transition-colors"
-            >
-              <div>
-                <p className="font-medium text-foreground">Acme Owner</p>
-                <p className="text-[10px] text-muted-foreground truncate">
-                  owner@acme.com
+          <div className="grid sm:grid-cols-2 gap-3">
+            {DEMO_PERSONAS.map((persona) => (
+              <button
+                key={persona.email}
+                type="button"
+                onClick={() => handleQuickLogin(persona.email)}
+                className="group relative rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50 hover:shadow-md cursor-pointer active:scale-[0.98]"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
+                    {persona.name}
+                  </span>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-mono text-primary font-medium">
+                    {persona.badge}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground mb-3 leading-snug">
+                  {persona.desc}
                 </p>
-              </div>
-              <ArrowRight className="size-3 text-muted-foreground" />
-            </button>
+                <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[10px] font-mono text-muted-foreground group-hover:text-foreground">
+                  <span className="truncate">{persona.email}</span>
+                  <ArrowRight className="size-3 transition-transform group-hover:translate-x-1" />
+                </div>
+              </button>
+            ))}
+          </div>
 
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("lead@acme.com")}
-              className="flex items-center justify-between rounded-md border border-border p-2 text-left hover:bg-muted/60 transition-colors"
-            >
-              <div>
-                <p className="font-medium text-foreground">Acme Team Lead</p>
-                <p className="text-[10px] text-muted-foreground truncate">
-                  lead@acme.com
-                </p>
-              </div>
-              <ArrowRight className="size-3 text-muted-foreground" />
-            </button>
+          {/* 3-Pillar Commitment Guarantee */}
+          <div className="rounded-xl border border-border bg-card/60 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+              <ShieldCheck className="size-4 text-primary" />
+              <span>Multi-Tenant Security Invariant</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Every request is scoped by JWT membership. Tenant A and Tenant B
+              data are hermetically isolated. Cross-tenant probes return
+              non-revealing 404s.
+            </p>
+          </div>
+        </div>
 
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("member@acme.com")}
-              className="flex items-center justify-between rounded-md border border-border p-2 text-left hover:bg-muted/60 transition-colors"
-            >
-              <div>
-                <p className="font-medium text-foreground">Acme Member</p>
-                <p className="text-[10px] text-muted-foreground truncate">
-                  member@acme.com
-                </p>
-              </div>
-              <ArrowRight className="size-3 text-muted-foreground" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("owner@globex.com")}
-              className="flex items-center justify-between rounded-md border border-border p-2 text-left hover:bg-muted/60 transition-colors"
-            >
-              <div>
-                <p className="font-medium text-foreground">Globex Owner</p>
-                <p className="text-[10px] text-muted-foreground truncate">
-                  owner@globex.com
-                </p>
-              </div>
-              <ArrowRight className="size-3 text-muted-foreground" />
-            </button>
+        {/* Bottom Feature Badges */}
+        <div className="flex items-center gap-6 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <Target className="size-3.5 text-primary" />
+            <span>1 Main Goal</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="size-3.5 text-primary" />
+            <span>Pydantic AI Coach</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Users2 className="size-3.5 text-primary" />
+            <span>Lead Sign-Off</span>
           </div>
         </div>
       </div>

@@ -175,8 +175,8 @@ export const getMyPlan = async (
   orgId: string,
   params: GetMyPlanParams,
   options?: Parameters<typeof customInstance>[1]
-): Promise<PlanResponse> => {
-  return customInstance<PlanResponse>(getGetMyPlanUrl(orgId, params), {
+): Promise<PlanResponse | null> => {
+  return customInstance<PlanResponse | null>(getGetMyPlanUrl(orgId, params), {
     ...options,
     method: "GET",
   });

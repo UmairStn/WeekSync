@@ -15,13 +15,13 @@ export default function FullScreenLoader() {
         />
         {/* launchpad bar pulses like exhaust */}
         <rect
-          className="launch-loader__pad"
+          className="launch-loader__pad text-primary"
           x="12"
           y="43"
           width="40"
           height="7"
           rx="3.5"
-          fill="#FF4F1F"
+          fill="currentColor"
         />
       </svg>
     </div>

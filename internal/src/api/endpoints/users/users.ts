@@ -721,3 +721,177 @@ export const useUserChangePassword = <
     queryClient
   );
 };
+export const getUserDeactivateUrl = (userId: string) => {
+  return `/users/${userId}/deactivate`;
+};
+
+/**
+ * Deactivate user account.
+ * @summary User Deactivate
+ */
+export const userDeactivate = async (
+  userId: string,
+  options?: Parameters<typeof customInstance>[1]
+): Promise<InternalUserResponse> => {
+  return customInstance<InternalUserResponse>(getUserDeactivateUrl(userId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getUserDeactivateMutationOptions = <
+  TError = ErrorType<HTTPValidationError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof userDeactivate>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customInstance>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof userDeactivate>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["userDeactivate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof userDeactivate>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return userDeactivate(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UserDeactivateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof userDeactivate>>
+>;
+
+export type UserDeactivateMutationError = ErrorType<HTTPValidationError>;
+
+/**
+ * @summary User Deactivate
+ */
+export const useUserDeactivate = <
+  TError = ErrorType<HTTPValidationError>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof userDeactivate>>,
+      TError,
+      { userId: string },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof userDeactivate>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getUserDeactivateMutationOptions(options), queryClient);
+};
+export const getUserReactivateUrl = (userId: string) => {
+  return `/users/${userId}/reactivate`;
+};
+
+/**
+ * Reactivate user account.
+ * @summary User Reactivate
+ */
+export const userReactivate = async (
+  userId: string,
+  options?: Parameters<typeof customInstance>[1]
+): Promise<InternalUserResponse> => {
+  return customInstance<InternalUserResponse>(getUserReactivateUrl(userId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getUserReactivateMutationOptions = <
+  TError = ErrorType<HTTPValidationError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof userReactivate>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customInstance>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof userReactivate>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["userReactivate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof userReactivate>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return userReactivate(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UserReactivateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof userReactivate>>
+>;
+
+export type UserReactivateMutationError = ErrorType<HTTPValidationError>;
+
+/**
+ * @summary User Reactivate
+ */
+export const useUserReactivate = <
+  TError = ErrorType<HTTPValidationError>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof userReactivate>>,
+      TError,
+      { userId: string },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof userReactivate>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getUserReactivateMutationOptions(options), queryClient);
+};

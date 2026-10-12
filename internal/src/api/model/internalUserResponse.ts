@@ -5,6 +5,7 @@
  * Internal api endpoints
  * OpenAPI spec version: 0.1.0
  */
+import type { UserOrgMembershipResponse } from "./userOrgMembershipResponse";
 
 export interface InternalUserResponse {
   id: string;
@@ -15,4 +16,5 @@ export interface InternalUserResponse {
   email: string;
   is_admin: boolean;
   is_active: boolean;
+  organizations?: UserOrgMembershipResponse[];
 }

@@ -2,6 +2,7 @@ import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
 import { QueryProvider } from "@/components/QueryProvider";
 import { UserProvider } from "@/contexts/user-context";
 import { Toaster } from "@/components/ui/sonner";
+import { NotFoundComponent } from "@/components/NotFound";
 import appCss from "@/styles.css?url";
 
 // Document shell for the whole app. In SPA mode this is what gets prerendered
@@ -11,8 +12,8 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Launchbase" },
-      { name: "description", content: "Launchbase internal console." },
+      { title: "WeekSync Internal" },
+      { name: "description", content: "WeekSync internal operations console." },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -21,15 +22,16 @@ export const Route = createRootRoute({
     ],
   }),
   shellComponent: RootDocument,
+  notFoundComponent: NotFoundComponent,
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body className="antialiased">
+      <body className="antialiased" suppressHydrationWarning>
         <QueryProvider>
           <UserProvider>
             {children}

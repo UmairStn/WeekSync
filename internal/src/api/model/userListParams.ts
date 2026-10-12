@@ -16,4 +16,8 @@ export type UserListParams = {
    * @minimum 0
    */
   offset?: number;
+  /**
+   * Search by name or email
+   */
+  search?: string | null;
 };

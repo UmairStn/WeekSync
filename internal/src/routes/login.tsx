@@ -71,11 +71,11 @@ function Login() {
     // "restricted access" surface that makes the context unmistakable. We pin
     // `dark` here (rather than following theme) so the look is consistent for
     // everyone regardless of their console theme preference.
-    <div className="dark flex min-h-screen items-center justify-center bg-background text-foreground p-6">
+    <div className="flex min-h-screen items-center justify-center bg-background text-foreground p-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-5 text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-3 py-1 font-mono text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-            <ShieldCheck className="size-3.5 text-[#FF4F1F]" />
+            <ShieldCheck className="size-3.5 text-primary" />
             Internal · Restricted
           </span>
           <div>
@@ -160,11 +160,11 @@ function Login() {
 
               <Button
                 type="submit"
-                className="h-11 w-full text-sm"
+                className="h-10 w-full rounded-full text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 cursor-pointer shadow-xs"
                 disabled={loginMutation.isPending || !form.formState.isValid}
               >
-                <LogIn className="size-4" />
-                {loginMutation.isPending ? "Signing in..." : "Sign in"}
+                <LogIn className="size-3.5 mr-1" />
+                {loginMutation.isPending ? "Signing in..." : "Sign in to Console"}
               </Button>
             </form>
           </Form>

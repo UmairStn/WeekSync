@@ -19,6 +19,17 @@ export const GetCurrentInternalUserResponse = zod.object({
   email: zod.string(),
   is_admin: zod.boolean(),
   is_active: zod.boolean(),
+  organizations: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        name: zod.string(),
+        slug: zod.string(),
+        org_role: zod.string(),
+        is_suspended: zod.boolean(),
+      })
+    )
+    .optional(),
 });
 
 /**
@@ -42,6 +53,10 @@ export const UserListQueryParams = zod.object({
     .int()
     .min(userListQueryOffsetMin)
     .default(userListQueryOffsetDefault),
+  search: zod
+    .union([zod.string(), zod.null()])
+    .optional()
+    .describe("Search by name or email"),
 });
 
 export const UserListResponse = zod.object({
@@ -58,6 +73,17 @@ export const UserListResponse = zod.object({
       email: zod.string(),
       is_admin: zod.boolean(),
       is_active: zod.boolean(),
+      organizations: zod
+        .array(
+          zod.object({
+            id: zod.string(),
+            name: zod.string(),
+            slug: zod.string(),
+            org_role: zod.string(),
+            is_suspended: zod.boolean(),
+          })
+        )
+        .optional(),
     })
   ),
   total: zod.number().int(),
@@ -95,6 +121,17 @@ export const UserCreateResponse = zod.object({
   email: zod.string(),
   is_admin: zod.boolean(),
   is_active: zod.boolean(),
+  organizations: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        name: zod.string(),
+        slug: zod.string(),
+        org_role: zod.string(),
+        is_suspended: zod.boolean(),
+      })
+    )
+    .optional(),
 });
 
 /**
@@ -129,6 +166,17 @@ export const UserUpdateResponse = zod.object({
   email: zod.string(),
   is_admin: zod.boolean(),
   is_active: zod.boolean(),
+  organizations: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        name: zod.string(),
+        slug: zod.string(),
+        org_role: zod.string(),
+        is_suspended: zod.boolean(),
+      })
+    )
+    .optional(),
 });
 
 /**
@@ -154,3 +202,63 @@ export const UserChangePasswordBody = zod.object({
 });
 
 export const UserChangePasswordResponse = zod.void();
+
+/**
+ * Deactivate user account.
+ * @summary User Deactivate
+ */
+export const UserDeactivateParams = zod.object({
+  user_id: zod.string().uuid(),
+});
+
+export const UserDeactivateResponse = zod.object({
+  id: zod.string(),
+  created_at: zod.string().datetime({ offset: true }),
+  updated_at: zod.union([zod.string().datetime({ offset: true }), zod.null()]),
+  first_name: zod.string(),
+  last_name: zod.string(),
+  email: zod.string(),
+  is_admin: zod.boolean(),
+  is_active: zod.boolean(),
+  organizations: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        name: zod.string(),
+        slug: zod.string(),
+        org_role: zod.string(),
+        is_suspended: zod.boolean(),
+      })
+    )
+    .optional(),
+});
+
+/**
+ * Reactivate user account.
+ * @summary User Reactivate
+ */
+export const UserReactivateParams = zod.object({
+  user_id: zod.string().uuid(),
+});
+
+export const UserReactivateResponse = zod.object({
+  id: zod.string(),
+  created_at: zod.string().datetime({ offset: true }),
+  updated_at: zod.union([zod.string().datetime({ offset: true }), zod.null()]),
+  first_name: zod.string(),
+  last_name: zod.string(),
+  email: zod.string(),
+  is_admin: zod.boolean(),
+  is_active: zod.boolean(),
+  organizations: zod
+    .array(
+      zod.object({
+        id: zod.string(),
+        name: zod.string(),
+        slug: zod.string(),
+        org_role: zod.string(),
+        is_suspended: zod.boolean(),
+      })
+    )
+    .optional(),
+});

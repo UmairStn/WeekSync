@@ -19,6 +19,8 @@ import type {
   HTTPValidationError,
   PlanReviewRequest,
   PlanReviewResult,
+  WeekSummaryRequest,
+  WeekSummaryResult,
 } from "../../model";
 
 import { customInstance } from "../../../lib/api-client";
@@ -220,4 +222,98 @@ export const useAiBrainDump = <
   TContext
 > => {
   return useMutation(getAiBrainDumpMutationOptions(options), queryClient);
+};
+
+export const getAiWeekSummaryUrl = (orgId: string) => {
+  return `/orgs/${orgId}/ai/week-summary`;
+};
+
+/**
+ * Generate an AI End-of-Week Summary for an approved or completed plan.
+ *
+ * Given the plan and which tasks were completed, drafts a short note on
+ * what shipped, what didn't, and why.
+ * @summary Ai Week Summary
+ */
+export const aiWeekSummary = async (
+  orgId: string,
+  weekSummaryRequest: WeekSummaryRequest,
+  options?: Parameters<typeof customInstance>[1]
+): Promise<WeekSummaryResult> => {
+  return customInstance<WeekSummaryResult>(getAiWeekSummaryUrl(orgId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(weekSummaryRequest),
+  });
+};
+
+export const getAiWeekSummaryMutationOptions = <
+  TError = ErrorType<HTTPValidationError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof aiWeekSummary>>,
+    TError,
+    { orgId: string; data: BodyType<WeekSummaryRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customInstance>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof aiWeekSummary>>,
+  TError,
+  { orgId: string; data: BodyType<WeekSummaryRequest> },
+  TContext
+> => {
+  const mutationKey = ["aiWeekSummary"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof aiWeekSummary>>,
+    { orgId: string; data: BodyType<WeekSummaryRequest> }
+  > = (props) => {
+    const { orgId, data } = props ?? {};
+
+    return aiWeekSummary(orgId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AiWeekSummaryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof aiWeekSummary>>
+>;
+export type AiWeekSummaryMutationBody = BodyType<WeekSummaryRequest>;
+export type AiWeekSummaryMutationError = ErrorType<HTTPValidationError>;
+
+/**
+ * @summary Ai Week Summary
+ */
+export const useAiWeekSummary = <
+  TError = ErrorType<HTTPValidationError>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof aiWeekSummary>>,
+      TError,
+      { orgId: string; data: BodyType<WeekSummaryRequest> },
+      TContext
+    >;
+    request?: SecondParameter<typeof customInstance>;
+  },
+  queryClient?: QueryClient
+): UseMutationResult<
+  Awaited<ReturnType<typeof aiWeekSummary>>,
+  TError,
+  { orgId: string; data: BodyType<WeekSummaryRequest> },
+  TContext
+> => {
+  return useMutation(getAiWeekSummaryMutationOptions(options), queryClient);
 };

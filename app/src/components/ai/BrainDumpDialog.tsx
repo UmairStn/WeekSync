@@ -116,7 +116,7 @@ export function BrainDumpDialog({
             size="sm"
             onClick={() => onOpenChange(false)}
             disabled={brainDumpMutation.isPending}
-            className="text-xs cursor-pointer"
+            className="text-xs cursor-pointer rounded-full"
           >
             Cancel
           </Button>
@@ -125,7 +125,7 @@ export function BrainDumpDialog({
             size="sm"
             onClick={handleGenerate}
             disabled={brainDumpMutation.isPending || notes.trim().length < 5}
-            className="text-xs gap-1.5 cursor-pointer"
+            className="text-xs gap-1.5 cursor-pointer rounded-full bg-foreground text-background hover:bg-foreground/90 font-semibold"
           >
             {brainDumpMutation.isPending ? (
               <>

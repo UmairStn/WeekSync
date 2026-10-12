@@ -48,3 +48,5 @@ export * from "./updateMemberRoleRequest";
 export * from "./userResponse";
 export * from "./validationError";
 export * from "./validationErrorCtx";
+export * from "./weekSummaryRequest";
+export * from "./weekSummaryResult";

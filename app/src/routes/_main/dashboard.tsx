@@ -17,9 +17,14 @@ import {
   Sparkles,
   Loader2,
   X,
+  Target,
+  Award,
+  Zap,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTenant } from "@/contexts/tenant-context";
+import { useCurrentUser } from "@/contexts/user-context";
 import {
   useGetMyPlan,
   useCreateOrUpdatePlan,
@@ -46,6 +51,7 @@ import {
   InlineFindingCard,
 } from "@/components/ai/PlanReviewPanel";
 import { BrainDumpDialog } from "@/components/ai/BrainDumpDialog";
+import { WeekSummaryDialog } from "@/components/ai/WeekSummaryDialog";
 import { cn, getErrorMessage } from "@/lib/utils";
 import type {
   TaskCreateRequest,
@@ -59,8 +65,16 @@ export const Route = createFileRoute("/_main/dashboard")({
   component: WeeklyPlanPage,
 });
 
+const GTM_SUGGESTIONS = [
+  "+ PostHog Telemetry",
+  "+ Feature Flag Guard",
+  "+ Docs & Changelog",
+  "+ Staging Verification",
+];
+
 function WeeklyPlanPage() {
   const queryClient = useQueryClient();
+  const user = useCurrentUser();
   const {
     currentOrgId,
     currentTeam,
@@ -74,7 +88,7 @@ function WeeklyPlanPage() {
     isTeamLead,
   } = useTenant();
 
-  // 1. Fetch Plan for selected week
+  // 1. Fetch Plan for selected week (guarded strictly by authenticated user)
   const { data: plan } = useGetMyPlan(
     currentOrgId,
     {
@@ -82,7 +96,8 @@ function WeeklyPlanPage() {
     },
     {
       query: {
-        enabled: !!currentOrgId && !!selectedMonday,
+        enabled: !!user && !!currentOrgId && !!selectedMonday,
+        retry: false,
       },
     }
   );
@@ -99,49 +114,22 @@ function WeeklyPlanPage() {
   const [newSubGoalInput, setNewSubGoalInput] = useState("");
   const [newGtmGoalInput, setNewGtmGoalInput] = useState("");
 
-  // Review modal state (for team leads)
-  const [sendBackDialogOpen, setSendBackDialogOpen] = useState(false);
-  const [sendBackComment, setSendBackComment] = useState("");
-
-  // AI Feature State
+  // AI & Dialog States
   const [brainDumpDialogOpen, setBrainDumpDialogOpen] = useState(false);
+  const [weekSummaryDialogOpen, setWeekSummaryDialogOpen] = useState(false);
   const [aiReviewResult, setAiReviewResult] = useState<PlanReviewResult | null>(
     null
   );
   const [aiReviewError, setAiReviewError] = useState<string | null>(null);
+  const [sendBackDialogOpen, setSendBackDialogOpen] = useState(false);
+  const [sendBackComment, setSendBackComment] = useState("");
 
-  const aiReviewMutation = useAiPlanReview({
-    mutation: {
-      onSuccess: (data) => {
-        setAiReviewResult(data);
-        setAiReviewError(null);
-        if (data.ready_to_submit || data.verdict === "approve") {
-          toast.success(
-            "AI review complete: Plan looks solid and ready for submission!"
-          );
-        } else {
-          toast.info(
-            "AI review complete: Check recommended refinements below."
-          );
-        }
-      },
-      onError: (err: unknown) => {
-        const msg = getErrorMessage(
-          err,
-          "AI review is temporarily unavailable. You can still save and submit your plan manually."
-        );
-        setAiReviewError(msg);
-        toast.error(msg);
-      },
-    },
-  });
-
-  // Sync server plan state into local form
+  // Populate local form state when plan query resolves or changes
   useEffect(() => {
     if (plan) {
-      const mainTask = plan.tasks.find((t) => t.category === "main");
-      setMainTaskTitle(mainTask?.title ?? "");
-      setMainTaskWhy(mainTask?.why_it_matters ?? "");
+      const main = plan.tasks.find((t) => t.category === "main");
+      setMainTaskTitle(main?.title ?? "");
+      setMainTaskWhy(main?.why_it_matters ?? "");
 
       const subs = plan.tasks
         .filter((t) => t.category === "sub_goal")
@@ -166,13 +154,15 @@ function WeeklyPlanPage() {
       setSubGoals([]);
       setGtmGoals([]);
     }
+    setAiReviewResult(null);
+    setAiReviewError(null);
   }, [plan]);
 
   // Mutations
   const savePlanMutation = useCreateOrUpdatePlan({
     mutation: {
       onSuccess: () => {
-        toast.success("Plan saved successfully");
+        toast.success("Draft saved successfully");
         queryClient.invalidateQueries();
       },
       onError: (err: unknown) => {
@@ -184,7 +174,7 @@ function WeeklyPlanPage() {
   const submitPlanMutation = useSubmitPlan({
     mutation: {
       onSuccess: () => {
-        toast.success("Plan submitted for review!");
+        toast.success("Plan submitted for lead review!");
         queryClient.invalidateQueries();
       },
       onError: (err: unknown) => {
@@ -208,7 +198,7 @@ function WeeklyPlanPage() {
   const sendBackMutation = useSendBackPlan({
     mutation: {
       onSuccess: () => {
-        toast.success("Plan sent back with comments");
+        toast.success("Plan sent back with feedback");
         setSendBackDialogOpen(false);
         setSendBackComment("");
         queryClient.invalidateQueries();
@@ -230,8 +220,26 @@ function WeeklyPlanPage() {
   const outcomeMutation = useUpdatePlanOutcome({
     mutation: {
       onSuccess: () => {
-        toast.success("Outcome recorded");
+        toast.success("Shipping outcome recorded");
         queryClient.invalidateQueries();
+      },
+    },
+  });
+
+  const aiReviewMutation = useAiPlanReview({
+    mutation: {
+      onSuccess: (data) => {
+        setAiReviewResult(data);
+        setAiReviewError(null);
+        toast.success("AI review complete! Inspect findings below.");
+      },
+      onError: (err: unknown) => {
+        const message = getErrorMessage(
+          err,
+          "AI review unavailable. Planning continues without interruption."
+        );
+        setAiReviewError(message);
+        toast.error("AI review temporarily unavailable");
       },
     },
   });
@@ -257,6 +265,14 @@ function WeeklyPlanPage() {
       { title: newGtmGoalInput.trim(), is_completed: false },
     ]);
     setNewGtmGoalInput("");
+  };
+
+  const handleAddSuggestedGtm = (suggestion: string) => {
+    const clean = suggestion.replace(/^\+\s*/, "");
+    if (!gtmGoals.some((g) => g.title.toLowerCase() === clean.toLowerCase())) {
+      setGtmGoals([...gtmGoals, { title: clean, is_completed: false }]);
+      toast.success(`Added ${clean}`);
+    }
   };
 
   const handleRemoveSubGoal = (index: number) => {
@@ -438,12 +454,12 @@ function WeeklyPlanPage() {
   };
 
   const totalTasks =
-    (plan ? 1 : 0) + (subGoals.length || 0) + (gtmGoals.length || 0);
+    (mainTaskTitle ? 1 : 0) + (subGoals.length || 0) + (gtmGoals.length || 0);
   const completedTasks = plan?.tasks.filter((t) => t.is_completed).length || 0;
 
   if (!currentTeamId) {
     return (
-      <div className="rounded-xl border border-border bg-card p-12 text-center space-y-3">
+      <div className="rounded-2xl border border-border bg-card p-12 text-center space-y-3 shadow-xs">
         <AlertCircle
           className="mx-auto size-8 text-muted-foreground"
           strokeWidth={1.5}
@@ -451,114 +467,104 @@ function WeeklyPlanPage() {
         <h2 className="text-base font-semibold text-foreground">
           No team selected
         </h2>
-        <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-          Please select or create a team in the sidebar to begin weekly
-          planning.
+        <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+          Please select or create a team using the workspace switcher in the
+          sidebar to begin weekly planning.
         </p>
       </div>
     );
   }
 
+  // Calculate lifecycle stages
+  const currentStatus = plan?.status ?? "draft";
+  const isApproved = currentStatus === "approved";
+  const isSubmitted = currentStatus === "submitted";
+  const isSentBack = currentStatus === "sent_back";
+
   return (
-    <div className="space-y-6">
-      {/* Week Navigator & Top Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-              {currentTeam?.name} &bull; Week of
-            </span>
-            <span className="font-mono text-xs font-semibold text-foreground">
-              {selectedMonday}
-            </span>
-            {isCurrentWeek && (
-              <span className="rounded-full bg-[#EDF3EC] px-2 py-0.5 text-[10px] font-mono text-[#346538]">
-                CURRENT
+    <div className="space-y-6 pb-12">
+      {/* 1. TOP HEADER: Week Navigation, Status Stepper, and Actions */}
+      <div className="rounded-2xl border border-border bg-card p-5 md:p-6 shadow-xs space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                {currentTeam?.name} &bull; Week Commencing
               </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <h1 className="font-serif text-2xl font-normal tracking-tight text-foreground">
-              {formattedWeekLabel}
-            </h1>
-            <div className="flex items-center gap-1 border border-border rounded-md bg-card p-0.5">
-              <button
-                type="button"
-                onClick={goToPreviousWeek}
-                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
-                title="Previous Week"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-              {!isCurrentWeek && (
+              <span className="font-mono text-xs font-semibold text-foreground bg-muted/60 px-2 py-0.5 rounded border border-border">
+                {selectedMonday}
+              </span>
+              {isCurrentWeek && (
+                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-medium">
+                  CURRENT WEEK
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 pt-1">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                {formattedWeekLabel}
+              </h1>
+
+              {/* Prev / Next Week Controls */}
+              <div className="flex items-center gap-1 border border-border rounded-lg bg-background p-0.5">
                 <button
                   type="button"
-                  onClick={goToCurrentWeek}
-                  className="px-2 py-0.5 text-[11px] font-mono text-muted-foreground hover:text-foreground hover:bg-muted rounded"
+                  onClick={goToPreviousWeek}
+                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                  title="Previous Week"
+                  aria-label="Previous Week"
                 >
-                  This Week
+                  <ChevronLeft className="size-4" />
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={goToNextWeek}
-                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
-                title="Next Week"
-              >
-                <ChevronRight className="size-4" />
-              </button>
+                {!isCurrentWeek && (
+                  <button
+                    type="button"
+                    onClick={goToCurrentWeek}
+                    className="px-2 py-0.5 text-[11px] font-mono font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors cursor-pointer"
+                  >
+                    Current
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={goToNextWeek}
+                  className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                  title="Next Week"
+                  aria-label="Next Week"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Plan Status Pill & AI Actions */}
-        <div className="flex items-center gap-3">
-          {plan ? (
-            <div className="flex items-center gap-2">
-              <span
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-mono uppercase tracking-wider font-medium",
-                  plan.status === "approved" && "bg-[#EDF3EC] text-[#346538]",
-                  plan.status === "submitted" && "bg-[#E1F3FE] text-[#1F6C9F]",
-                  plan.status === "draft" && "bg-[#FBF3DB] text-[#956400]",
-                  plan.status === "sent_back" && "bg-[#FDEBEC] text-[#9F2F2D]"
-                )}
+          {/* Action Bar */}
+          {isApproved && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setWeekSummaryDialogOpen(true)}
+                className="gap-1.5 text-xs font-medium cursor-pointer rounded-full"
               >
-                {plan.status.replace("_", " ")}
-              </span>
-
-              {plan.status === "approved" &&
-                plan.main_task_shipped !== null && (
-                  <span
-                    className={cn(
-                      "rounded-full px-2.5 py-1 text-xs font-mono",
-                      plan.main_task_shipped
-                        ? "bg-[#EDF3EC] text-[#346538]"
-                        : "bg-[#FDEBEC] text-[#9F2F2D]"
-                    )}
-                  >
-                    {plan.main_task_shipped ? "Goal Shipped" : "Goal Missed"}
-                  </span>
-                )}
+                <FileText className="size-3.5 text-foreground" />
+                <span>AI Week Summary</span>
+              </Button>
             </div>
-          ) : (
-            <span className="rounded-full bg-muted px-3 py-1 text-xs font-mono uppercase tracking-wider text-muted-foreground">
-              NOT CREATED
-            </span>
           )}
-
-          {/* AI Action Buttons */}
-          {plan?.status !== "approved" && (
-            <div className="flex items-center gap-2 border-l border-border pl-3">
+          {!isApproved && (
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setBrainDumpDialogOpen(true)}
-                className="h-8 gap-1.5 text-xs font-medium border-border hover:bg-muted cursor-pointer"
+                className="gap-1.5 text-xs font-medium cursor-pointer rounded-full"
               >
-                <Sparkles className="size-3.5 text-primary" />
-                <span>Draft with AI</span>
+                <Zap className="size-3.5 text-foreground" />
+                <span>AI Brain Dump</span>
               </Button>
               <Button
                 type="button"
@@ -566,7 +572,7 @@ function WeeklyPlanPage() {
                 size="sm"
                 onClick={handleTriggerAiReview}
                 disabled={aiReviewMutation.isPending}
-                className="h-8 gap-1.5 text-xs font-medium border-border hover:bg-muted cursor-pointer"
+                className="gap-1.5 text-xs font-medium cursor-pointer rounded-full"
               >
                 {aiReviewMutation.isPending ? (
                   <>
@@ -575,33 +581,140 @@ function WeeklyPlanPage() {
                   </>
                 ) : (
                   <>
-                    <Sparkles className="size-3.5 text-primary" />
+                    <Sparkles className="size-3.5 text-foreground" />
                     <span>AI Review</span>
                   </>
                 )}
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleSaveDraft}
+                disabled={savePlanMutation.isPending}
+                className="text-xs font-medium cursor-pointer shadow-xs rounded-full"
+              >
+                {savePlanMutation.isPending ? "Saving..." : "Save Draft"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSubmit}
+                disabled={submitPlanMutation.isPending}
+                className="text-xs font-semibold gap-1.5 cursor-pointer shadow-xs bg-foreground hover:bg-foreground/90 text-background rounded-full"
+              >
+                <Send className="size-3.5" />
+                <span>Submit for Review</span>
+              </Button>
             </div>
           )}
+        </div>
 
-          {/* Progress metric */}
-          {plan && plan.tasks.length > 0 && (
-            <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono text-muted-foreground border-l border-border pl-3">
-              <span>
-                {completedTasks}/{totalTasks}
-              </span>
-              <span>ticked</span>
+        {/* Streamlined Lifecycle Progress Strip */}
+        <div className="pt-3 border-t border-border flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto py-1">
+            <div
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-medium transition-colors",
+                currentStatus === "draft"
+                  ? "bg-foreground text-background font-semibold"
+                  : "text-muted-foreground bg-muted/40"
+              )}
+            >
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  currentStatus === "draft"
+                    ? "bg-background"
+                    : "bg-muted-foreground/40"
+                )}
+              />
+              <span>1. Draft</span>
             </div>
-          )}
+            <ChevronRight className="size-3 text-muted-foreground/50 shrink-0" />
+            <div
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-medium transition-colors",
+                currentStatus === "submitted"
+                  ? "bg-foreground text-background font-semibold"
+                  : "text-muted-foreground bg-muted/40"
+              )}
+            >
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  currentStatus === "submitted"
+                    ? "bg-background"
+                    : "bg-muted-foreground/40"
+                )}
+              />
+              <span>2. In Review</span>
+            </div>
+            <ChevronRight className="size-3 text-muted-foreground/50 shrink-0" />
+            <div
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-medium transition-colors",
+                currentStatus === "approved"
+                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                  : "text-muted-foreground bg-muted/40"
+              )}
+            >
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  currentStatus === "approved"
+                    ? "bg-emerald-500"
+                    : "bg-muted-foreground/40"
+                )}
+              />
+              <span>3. Approved</span>
+            </div>
+            <ChevronRight className="size-3 text-muted-foreground/50 shrink-0" />
+            <div
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-medium transition-colors",
+                plan?.main_task_shipped === true
+                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                  : plan?.main_task_shipped === false
+                    ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                    : "text-muted-foreground bg-muted/40"
+              )}
+            >
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  plan?.main_task_shipped === true
+                    ? "bg-emerald-500"
+                    : plan?.main_task_shipped === false
+                      ? "bg-rose-500"
+                      : "bg-muted-foreground/40"
+                )}
+              />
+              <span>
+                {plan?.main_task_shipped === true
+                  ? "4. Shipped 🎉"
+                  : plan?.main_task_shipped === false
+                    ? "4. Missed"
+                    : "4. Friday Shipped"}
+              </span>
+            </div>
+          </div>
+
+          <span className="font-mono text-[11px] text-muted-foreground hidden sm:inline">
+            {completedTasks > 0
+              ? `${completedTasks}/${totalTasks} deliverables ticked`
+              : `${totalTasks} deliverables planned`}
+          </span>
         </div>
       </div>
 
       {/* Fallback Banner for AI errors */}
       {aiReviewError && (
-        <div className="flex items-start justify-between gap-3 rounded-lg border border-destructive/20 bg-destructive/10 p-3.5 text-xs text-destructive">
-          <div className="flex items-start gap-2">
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-xs text-destructive animate-in fade-in">
+          <div className="flex items-start gap-2.5">
             <AlertCircle className="size-4 shrink-0 mt-0.5" />
             <div>
-              <p className="font-medium">AI Assistant Notice</p>
+              <p className="font-semibold">AI Assistant Notice</p>
               <p className="mt-0.5 opacity-90 leading-relaxed">
                 {aiReviewError}
               </p>
@@ -628,30 +741,32 @@ function WeeklyPlanPage() {
       )}
 
       {/* Review Feedback Alert (if sent back) */}
-      {plan?.status === "sent_back" && plan.review_comment && (
-        <div className="rounded-lg border border-[#FDEBEC] bg-[#FDEBEC]/30 p-4 space-y-1">
-          <div className="flex items-center gap-2 text-xs font-medium text-[#9F2F2D]">
+      {isSentBack && plan?.review_comment && (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 space-y-1.5 animate-in fade-in">
+          <div className="flex items-center gap-2 text-xs font-semibold text-rose-600 dark:text-rose-400">
             <RotateCcw className="size-4" />
             <span>Sent back by Team Lead for revisions</span>
           </div>
-          <p className="text-xs text-foreground/80 pl-6 italic">
+          <p className="text-xs text-foreground/90 pl-6 italic leading-relaxed">
             &ldquo;{plan.review_comment}&rdquo;
           </p>
         </div>
       )}
 
-      {/* Review Banner for Team Leads (if submitted) */}
-      {isTeamLead && plan?.status === "submitted" && (
-        <div className="flex items-center justify-between rounded-lg border border-[#E1F3FE] bg-[#E1F3FE]/20 p-4">
-          <div className="flex items-center gap-2.5">
-            <Clock className="size-4 text-[#1F6C9F]" />
+      {/* Lead Review Action Banner */}
+      {isTeamLead && isSubmitted && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-border bg-card p-4 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
+              <Clock className="size-4" />
+            </div>
             <div>
-              <p className="text-xs font-semibold text-[#1F6C9F]">
+              <p className="text-xs font-semibold text-foreground">
                 Plan awaiting your review
               </p>
               <p className="text-[11px] text-muted-foreground">
-                As the Team Lead, verify this week&apos;s goals and approve or
-                send back.
+                As Team Lead, verify this week&apos;s commitment and approve or
+                send back with revisions.
               </p>
             </div>
           </div>
@@ -661,67 +776,83 @@ function WeeklyPlanPage() {
               variant="outline"
               onClick={() => setSendBackDialogOpen(true)}
               disabled={sendBackMutation.isPending}
-              className="text-xs h-8 border-border text-[#9F2F2D] hover:bg-[#FDEBEC]"
+              className="text-xs h-8 border-rose-500/30 text-rose-600 hover:bg-rose-500/10 cursor-pointer"
             >
               Send Back...
             </Button>
             <Button
               size="sm"
-              onClick={() =>
+              onClick={() => {
+                if (!plan) {
+                  return;
+                }
                 approveMutation.mutate({
                   orgId: currentOrgId,
                   planId: plan.id,
-                })
-              }
+                });
+              }}
               disabled={approveMutation.isPending}
-              className="text-xs h-8 bg-foreground text-background hover:bg-foreground/90 font-medium"
+              className="text-xs h-8 font-semibold gap-1.5 cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
             >
-              <ThumbsUp className="size-3.5 mr-1.5" />
-              Approve Plan
+              <ThumbsUp className="size-3.5" />
+              <span>Approve Plan</span>
             </Button>
           </div>
         </div>
       )}
 
-      {/* SECTION 1: THE MAIN TASK (Single Primary Goal) */}
-      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+      {/* SECTION 1: THE COMMITMENT HERO CARD (Main Task) */}
+      <div className="rounded-2xl border border-border bg-card p-6 md:p-7 shadow-xs space-y-5">
         <div className="flex items-center justify-between border-b border-border pb-3">
-          <div className="flex items-center gap-2">
-            <Flag className="size-4 text-foreground" strokeWidth={2} />
-            <h2 className="text-sm font-semibold tracking-tight text-foreground">
-              Main Task (The One Thing to Ship)
-            </h2>
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
+              <Target className="size-4" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold tracking-tight text-foreground">
+                Main Task (The One Thing to Ship)
+              </h2>
+              <p className="text-[11px] text-muted-foreground">
+                The single primary engineering initiative that must verifiably
+                ship this week.
+              </p>
+            </div>
           </div>
-          <span className="text-[11px] font-mono uppercase text-muted-foreground">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold px-2 py-0.5 rounded border border-border bg-muted/40">
             Strictly 1 Required
           </span>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div>
-            <label className="text-xs font-medium text-foreground block mb-1">
-              What will ship this week?
+            <label className="text-xs font-semibold text-foreground block mb-1.5">
+              What will verifiably ship by Friday?
             </label>
             <Input
               value={mainTaskTitle}
               onChange={(e) => setMainTaskTitle(e.target.value)}
-              placeholder="e.g. Multi-tenant database migrations & access isolation"
-              className="text-xs font-medium"
-              disabled={plan?.status === "approved"}
+              placeholder="e.g. Stripe webhook idempotency key handling with expired card retries verified on sandbox"
+              className="text-xs sm:text-sm font-medium h-10"
+              disabled={isApproved}
             />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-foreground block mb-1">
-              Why does it matter? (Strategic business impact)
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-foreground block">
+                Why does it matter? (Customer impact / Business justification)
+              </label>
+              <span className="text-[10px] font-mono text-muted-foreground">
+                What metric improves?
+              </span>
+            </div>
             <Textarea
               value={mainTaskWhy}
               onChange={(e) => setMainTaskWhy(e.target.value)}
-              placeholder="e.g. Unblocks SOC2 compliance certification and prevents customer cross-tenant data leaks."
+              placeholder="e.g. Eliminates double-charge chargebacks for recurring subscriptions and unblocks self-serve card updates without support tickets."
               rows={2}
-              className="text-xs"
-              disabled={plan?.status === "approved"}
+              className="text-xs leading-relaxed"
+              disabled={isApproved}
             />
           </div>
 
@@ -743,57 +874,74 @@ function WeeklyPlanPage() {
                 />
               ))}
 
-          {/* End-of-week outcome toggle (if approved) */}
-          {plan?.status === "approved" && (
-            <div className="pt-2 border-t border-border flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-foreground">
-                  End of Week Outcome
-                </p>
+          {/* End-of-week outcome celebration toggle (if approved) */}
+          {isApproved && (
+            <div className="pt-4 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/20 -mx-6 -mb-6 p-6 rounded-b-2xl">
+              <div className="space-y-0.5">
+                <span className="text-xs font-bold text-foreground">
+                  Friday Outcome: Did the Main Task Ship?
+                </span>
                 <p className="text-[11px] text-muted-foreground">
-                  Did the main task actually ship by the end of the week?
+                  Record verifiable production status at the end of the sprint.
                 </p>
               </div>
+
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
                   variant={
-                    plan.main_task_shipped === true ? "default" : "outline"
+                    plan?.main_task_shipped === true ? "default" : "outline"
                   }
-                  onClick={() =>
+                  onClick={() => {
+                    if (!plan) {
+                      return;
+                    }
                     outcomeMutation.mutate({
                       orgId: currentOrgId,
                       planId: plan.id,
                       data: { main_task_shipped: true },
-                    })
-                  }
+                    });
+                  }}
+                  disabled={outcomeMutation.isPending}
                   className={cn(
-                    "h-7 text-xs",
-                    plan.main_task_shipped === true &&
-                      "bg-[#EDF3EC] text-[#346538] hover:bg-[#EDF3EC]/80 border-0"
+                    "h-8 text-xs font-semibold gap-1.5 cursor-pointer",
+                    plan?.main_task_shipped === true &&
+                      "bg-emerald-600 hover:bg-emerald-700 text-white"
                   )}
                 >
-                  Yes, Shipped
+                  <Award className="size-3.5" />
+                  <span>Shipped 🎉</span>
                 </Button>
                 <Button
                   size="sm"
                   variant={
-                    plan.main_task_shipped === false ? "default" : "outline"
+                    plan?.main_task_shipped === false
+                      ? "destructive"
+                      : "outline"
                   }
-                  onClick={() =>
+                  onClick={() => {
+                    if (!plan) {
+                      return;
+                    }
                     outcomeMutation.mutate({
                       orgId: currentOrgId,
                       planId: plan.id,
                       data: { main_task_shipped: false },
-                    })
-                  }
-                  className={cn(
-                    "h-7 text-xs",
-                    plan.main_task_shipped === false &&
-                      "bg-[#FDEBEC] text-[#9F2F2D] hover:bg-[#FDEBEC]/80 border-0"
-                  )}
+                    });
+                  }}
+                  disabled={outcomeMutation.isPending}
+                  className="h-8 text-xs font-semibold gap-1.5 cursor-pointer"
                 >
-                  No, Missed
+                  <span>Missed</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setWeekSummaryDialogOpen(true)}
+                  className="h-8 text-xs font-semibold gap-1.5 cursor-pointer rounded-full"
+                >
+                  <Sparkles className="size-3.5 text-foreground" />
+                  <span>AI Week Summary</span>
                 </Button>
               </div>
             </div>
@@ -801,293 +949,246 @@ function WeeklyPlanPage() {
         </div>
       </div>
 
-      {/* SECTION 2: SUB-GOALS (Execution Checklist) */}
-      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-border pb-3">
-          <div>
-            <h2 className="text-sm font-semibold tracking-tight text-foreground">
-              Sub-Goals
-            </h2>
-            <p className="text-[11px] text-muted-foreground">
-              Smaller engineering and design deliverables supporting the main
-              task.
-            </p>
-          </div>
-          <span className="text-[11px] font-mono text-muted-foreground">
-            {subGoals.filter((s) => s.is_completed).length}/{subGoals.length}{" "}
-            done
-          </span>
-        </div>
-
-        {/* Existing sub-goals list */}
-        <div className="space-y-2">
-          {subGoals.map((sub, idx) => (
-            <div key={sub.id || idx} className="space-y-1.5">
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 p-2.5 bg-background transition-colors hover:bg-muted/30">
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <button
-                    type="button"
-                    onClick={() => handleToggleTaskCompleted(sub)}
-                    disabled={!plan || plan.status === "draft"}
-                    className="text-foreground shrink-0 transition-transform active:scale-90"
-                  >
-                    {sub.is_completed ? (
-                      <CheckCircle2
-                        className="size-4 text-[#346538]"
-                        strokeWidth={2.5}
-                      />
-                    ) : (
-                      <Circle
-                        className="size-4 text-muted-foreground"
-                        strokeWidth={1.5}
-                      />
-                    )}
-                  </button>
-                  <span
-                    className={cn(
-                      "text-xs truncate font-medium",
-                      sub.is_completed && "line-through text-muted-foreground"
-                    )}
-                  >
-                    {sub.title}
-                  </span>
-                </div>
-
-                {plan?.status !== "approved" && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveSubGoal(idx)}
-                    className="text-muted-foreground hover:text-destructive p-1 rounded"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                )}
+      {/* SECTION 2: DUAL-PILLAR EXECUTION BENTO */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* LEFT PILLAR: Tactical Sub-Goals */}
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-xs space-y-4 flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="size-4 text-foreground" />
+                <h3 className="text-sm font-bold text-foreground">
+                  Tactical Sub-Goals
+                </h3>
               </div>
-
-              {/* Inline AI Review finding for this Sub-Goal */}
-              {aiReviewResult &&
-                (aiReviewResult.findings ?? [])
-                  .filter(
-                    (f) =>
-                      (f.task_id && f.task_id === sub.id) ||
-                      (!f.task_id &&
-                        f.task &&
-                        f.task.toLowerCase().trim() ===
-                          sub.title.toLowerCase().trim())
-                  )
-                  .map((finding, fIdx) => (
-                    <InlineFindingCard
-                      key={finding.task_id ?? `sub-finding-${idx}-${fIdx}`}
-                      finding={finding}
-                      onApply={() => handleApplyRewrite(finding)}
-                    />
-                  ))}
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {subGoals.length} tasks
+              </span>
             </div>
-          ))}
 
-          {subGoals.length === 0 && (
-            <p className="text-xs text-muted-foreground italic py-2">
-              No sub-goals added yet.
-            </p>
-          )}
-        </div>
-
-        {/* Add sub-goal input */}
-        {plan?.status !== "approved" && (
-          <div className="flex items-center gap-2 pt-1">
-            <Input
-              value={newSubGoalInput}
-              onChange={(e) => setNewSubGoalInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddSubGoal()}
-              placeholder="Add sub-goal..."
-              className="text-xs h-8"
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={handleAddSubGoal}
-              className="h-8 text-xs shrink-0"
-            >
-              <Plus className="size-3.5 mr-1" />
-              Add
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* SECTION 3: GO-TO-MARKET GOALS */}
-      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-border pb-3">
-          <div>
-            <h2 className="text-sm font-semibold tracking-tight text-foreground">
-              Go-to-Market (GTM) Goals
-            </h2>
-            <p className="text-[11px] text-muted-foreground">
-              Documentation, release notes, demos, customer comms, or marketing
-              announcements.
-            </p>
-          </div>
-          <span className="text-[11px] font-mono text-muted-foreground">
-            {gtmGoals.filter((g) => g.is_completed).length}/{gtmGoals.length}{" "}
-            done
-          </span>
-        </div>
-
-        {/* Existing GTM goals list */}
-        <div className="space-y-2">
-          {gtmGoals.map((gtm, idx) => (
-            <div key={gtm.id || idx} className="space-y-1.5">
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 p-2.5 bg-background transition-colors hover:bg-muted/30">
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <button
-                    type="button"
-                    onClick={() => handleToggleTaskCompleted(gtm)}
-                    disabled={!plan || plan.status === "draft"}
-                    className="text-foreground shrink-0 transition-transform active:scale-90"
-                  >
-                    {gtm.is_completed ? (
-                      <CheckCircle2
-                        className="size-4 text-[#346538]"
-                        strokeWidth={2.5}
-                      />
-                    ) : (
-                      <Circle
-                        className="size-4 text-muted-foreground"
-                        strokeWidth={1.5}
-                      />
-                    )}
-                  </button>
-                  <span
-                    className={cn(
-                      "text-xs truncate font-medium",
-                      gtm.is_completed && "line-through text-muted-foreground"
-                    )}
-                  >
-                    {gtm.title}
-                  </span>
+            {/* Sub-goals List */}
+            <div className="space-y-2 min-h-24">
+              {subGoals.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground italic">
+                  No sub-goals added yet. Add bite-sized deliverables below.
                 </div>
-
-                {plan?.status !== "approved" && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveGtmGoal(idx)}
-                    className="text-muted-foreground hover:text-destructive p-1 rounded"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* Inline AI Review finding for this GTM Goal */}
-              {aiReviewResult &&
-                (aiReviewResult.findings ?? [])
-                  .filter(
-                    (f) =>
-                      (f.task_id && f.task_id === gtm.id) ||
-                      (!f.task_id &&
-                        f.task &&
-                        f.task.toLowerCase().trim() ===
-                          gtm.title.toLowerCase().trim())
-                  )
-                  .map((finding, fIdx) => (
-                    <InlineFindingCard
-                      key={finding.task_id ?? `gtm-finding-${idx}-${fIdx}`}
-                      finding={finding}
-                      onApply={() => handleApplyRewrite(finding)}
-                    />
-                  ))}
-            </div>
-          ))}
-
-          {/* Missing GTM goal finding alert */}
-          {aiReviewResult &&
-            (aiReviewResult.findings ?? [])
-              .filter((f) => f.issue_type === "missing_gtm")
-              .map((finding, fIdx) => (
-                <InlineFindingCard
-                  key={finding.task_id ?? `gtm-missing-${fIdx}`}
-                  finding={finding}
-                  onApply={() => handleApplyRewrite(finding)}
-                />
-              ))}
-
-          {gtmGoals.length === 0 && (
-            <p className="text-xs text-muted-foreground italic py-2">
-              No GTM goals added yet.
-            </p>
-          )}
-        </div>
-
-        {/* Add GTM goal input */}
-        {plan?.status !== "approved" && (
-          <div className="flex items-center gap-2 pt-1">
-            <Input
-              value={newGtmGoalInput}
-              onChange={(e) => setNewGtmGoalInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddGtmGoal()}
-              placeholder="Add GTM goal (e.g. publish release note, update docs)..."
-              className="text-xs h-8"
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={handleAddGtmGoal}
-              className="h-8 text-xs shrink-0"
-            >
-              <Plus className="size-3.5 mr-1" />
-              Add
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* BOTTOM ACTION BAR */}
-      <div className="flex items-center justify-between border-t border-border pt-4">
-        <div className="text-xs text-muted-foreground">
-          {plan?.status === "approved" ? (
-            <span>
-              Plan is approved. Tasks can be ticked done throughout the week.
-            </span>
-          ) : plan?.status === "submitted" ? (
-            <span>Plan is submitted and awaiting team lead review.</span>
-          ) : (
-            <span>
-              Save as draft or submit when you&apos;re ready for lead review.
-            </span>
-          )}
-        </div>
-
-        {plan?.status !== "approved" && (
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleTriggerAiReview}
-              disabled={aiReviewMutation.isPending}
-              className="text-xs h-9 gap-1.5 border-border hover:bg-muted cursor-pointer"
-            >
-              {aiReviewMutation.isPending ? (
-                <>
-                  <Loader2 className="size-3.5 animate-spin" />
-                  <span>Reviewing...</span>
-                </>
               ) : (
-                <>
-                  <Sparkles className="size-3.5 text-primary" />
-                  <span>AI Review</span>
-                </>
+                subGoals.map((task, idx) => (
+                  <div
+                    key={task.id ?? `sub-${idx}`}
+                    className="group rounded-xl border border-border bg-background p-3 text-xs flex items-center justify-between gap-2 hover:border-foreground/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      {isApproved ? (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleTaskCompleted(task)}
+                          className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
+                        >
+                          {task.is_completed ? (
+                            <CheckCircle2 className="size-4 text-emerald-500" />
+                          ) : (
+                            <Circle className="size-4" />
+                          )}
+                        </button>
+                      ) : (
+                        <span className="font-mono text-[10px] text-muted-foreground shrink-0">
+                          {idx + 1}.
+                        </span>
+                      )}
+                      <span
+                        className={cn(
+                          "truncate font-medium text-foreground",
+                          task.is_completed &&
+                            "line-through text-muted-foreground"
+                        )}
+                      >
+                        {task.title}
+                      </span>
+                    </div>
+
+                    {!isApproved && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSubGoal(idx)}
+                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-1 transition-opacity cursor-pointer"
+                        aria-label="Remove sub-goal"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))
               )}
-            </Button>
+            </div>
+          </div>
+
+          {/* Quick-add row */}
+          {!isApproved && (
+            <div className="pt-3 border-t border-border flex items-center gap-2">
+              <Input
+                value={newSubGoalInput}
+                onChange={(e) => setNewSubGoalInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddSubGoal();
+                  }
+                }}
+                placeholder="Add sub-goal (Press Enter)..."
+                className="text-xs h-9"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleAddSubGoal}
+                disabled={!newSubGoalInput.trim()}
+                className="h-9 px-3 text-xs cursor-pointer shadow-xs"
+              >
+                <Plus className="size-3.5" />
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT PILLAR: Go-To-Market & Release Hygiene */}
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-xs space-y-4 flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <Flag className="size-4 text-foreground" />
+                <h3 className="text-sm font-bold text-foreground">
+                  Go-To-Market & Release Hygiene
+                </h3>
+              </div>
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {gtmGoals.length} items
+              </span>
+            </div>
+
+            {/* Quick suggestions chips */}
+            {!isApproved && (
+              <div className="flex flex-wrap gap-1.5 pb-1">
+                {GTM_SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => handleAddSuggestedGtm(s)}
+                    className="text-[10px] font-mono rounded-full bg-muted/60 px-2 py-0.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer border border-border/60"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* GTM goals List */}
+            <div className="space-y-2 min-h-24">
+              {gtmGoals.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground italic">
+                  No GTM tasks yet. Track telemetry, feature flags, and docs.
+                </div>
+              ) : (
+                gtmGoals.map((task, idx) => (
+                  <div
+                    key={task.id ?? `gtm-${idx}`}
+                    className="group rounded-xl border border-border bg-background p-3 text-xs flex items-center justify-between gap-2 hover:border-foreground/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      {isApproved ? (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleTaskCompleted(task)}
+                          className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0"
+                        >
+                          {task.is_completed ? (
+                            <CheckCircle2 className="size-4 text-emerald-500" />
+                          ) : (
+                            <Circle className="size-4" />
+                          )}
+                        </button>
+                      ) : (
+                        <span className="font-mono text-[10px] text-muted-foreground shrink-0">
+                          {idx + 1}.
+                        </span>
+                      )}
+                      <span
+                        className={cn(
+                          "truncate font-medium text-foreground",
+                          task.is_completed &&
+                            "line-through text-muted-foreground"
+                        )}
+                      >
+                        {task.title}
+                      </span>
+                    </div>
+
+                    {!isApproved && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveGtmGoal(idx)}
+                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive p-1 transition-opacity cursor-pointer"
+                        aria-label="Remove GTM goal"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Quick-add row */}
+          {!isApproved && (
+            <div className="pt-3 border-t border-border flex items-center gap-2">
+              <Input
+                value={newGtmGoalInput}
+                onChange={(e) => setNewGtmGoalInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddGtmGoal();
+                  }
+                }}
+                placeholder="Add release task (Press Enter)..."
+                className="text-xs h-9"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleAddGtmGoal}
+                disabled={!newGtmGoalInput.trim()}
+                className="h-9 px-3 text-xs cursor-pointer shadow-xs"
+              >
+                <Plus className="size-3.5" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SECTION 3: FORM BOTTOM ACTIONS (Natural page flow, no floating dock) */}
+      {!isApproved && (
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="text-xs text-muted-foreground font-mono">
+            <span>{totalTasks} total planned tasks</span>
+            <span className="mx-2">&bull;</span>
+            <span>
+              1 Main + {subGoals.length} Sub + {gtmGoals.length} GTM
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={handleSaveDraft}
               disabled={savePlanMutation.isPending}
-              className="text-xs h-9 cursor-pointer"
+              className="text-xs font-medium cursor-pointer shadow-xs rounded-full"
             >
               {savePlanMutation.isPending ? "Saving..." : "Save Draft"}
             </Button>
@@ -1095,52 +1196,97 @@ function WeeklyPlanPage() {
               type="button"
               size="sm"
               onClick={handleSubmit}
-              disabled={
-                submitPlanMutation.isPending || savePlanMutation.isPending
-              }
-              className="text-xs h-9 bg-foreground text-background hover:bg-foreground/90 font-medium cursor-pointer"
+              disabled={submitPlanMutation.isPending}
+              className="text-xs font-semibold gap-1.5 cursor-pointer shadow-xs bg-foreground hover:bg-foreground/90 text-background rounded-full"
             >
-              <Send className="size-3.5 mr-1.5" />
-              {submitPlanMutation.isPending
-                ? "Submitting..."
-                : "Submit for Review"}
+              <Send className="size-3.5" />
+              <span>Submit for Lead Review</span>
             </Button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Send Back Dialog */}
+      {isApproved && plan && (
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="text-xs text-muted-foreground font-mono">
+            <span className="font-semibold text-foreground uppercase tracking-wider text-[10px]">
+              Plan {plan.status}
+            </span>
+            <span className="mx-2">&bull;</span>
+            <span>
+              {completedTasks} of {totalTasks} deliverables completed
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setWeekSummaryDialogOpen(true)}
+              className="text-xs font-semibold gap-1.5 cursor-pointer shadow-xs bg-foreground hover:bg-foreground/90 text-background rounded-full"
+            >
+              <Sparkles className="size-3.5" />
+              <span>Generate Week Summary</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Brain Dump Modal */}
+      <BrainDumpDialog
+        open={brainDumpDialogOpen}
+        onOpenChange={setBrainDumpDialogOpen}
+        onApplyDraft={handleApplyBrainDump}
+        orgId={currentOrgId}
+      />
+
+      {/* Week Summary Modal */}
+      {plan && (
+        <WeekSummaryDialog
+          open={weekSummaryDialogOpen}
+          onOpenChange={setWeekSummaryDialogOpen}
+          orgId={currentOrgId}
+          planId={plan.id}
+          weekStartDate={plan.week_start_date}
+        />
+      )}
+
+      {/* Send Back Comment Dialog (Team Lead only) */}
       <Dialog open={sendBackDialogOpen} onOpenChange={setSendBackDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-sm font-semibold">
-              Send Plan Back for Revisions
+            <DialogTitle className="text-base font-semibold">
+              Send Back Plan for Revisions
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Provide feedback for the team member on what needs clarification
-              or adjustment.
+              Provide actionable guidance explaining what requires refinement
+              before approval.
             </DialogDescription>
           </DialogHeader>
           <div className="py-2">
             <Textarea
               value={sendBackComment}
               onChange={(e) => setSendBackComment(e.target.value)}
-              placeholder="e.g. The main task needs a clearer definition of done, and please add docs to GTM goals."
+              placeholder="e.g. Please clarify what 'Stripe handling' means. Include webhook idempotency and test on sandbox."
               rows={3}
               className="text-xs"
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={() => setSendBackDialogOpen(false)}
-              className="text-xs"
+              className="text-xs cursor-pointer"
             >
               Cancel
             </Button>
             <Button
+              type="button"
               size="sm"
+              variant="destructive"
+              disabled={sendBackMutation.isPending || !sendBackComment.trim()}
               onClick={() => {
                 if (!plan) {
                   return;
@@ -1148,27 +1294,18 @@ function WeeklyPlanPage() {
                 sendBackMutation.mutate({
                   orgId: currentOrgId,
                   planId: plan.id,
-                  data: {
-                    comment: sendBackComment.trim() || undefined,
-                  },
+                  data: { comment: sendBackComment.trim() },
                 });
               }}
-              disabled={sendBackMutation.isPending}
-              className="text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="text-xs cursor-pointer"
             >
-              Confirm Send Back
+              {sendBackMutation.isPending
+                ? "Sending..."
+                : "Send Back with Feedback"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Brain Dump Dialog */}
-      <BrainDumpDialog
-        open={brainDumpDialogOpen}
-        onOpenChange={setBrainDumpDialogOpen}
-        onApplyDraft={handleApplyBrainDump}
-        orgId={currentOrgId}
-      />
     </div>
   );
 }

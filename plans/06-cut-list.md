@@ -20,13 +20,16 @@
 
 ---
 
-## 2. Optional AI Features (Deferred / Cut)
+## 2. Optional AI Features
+
+Per RULES.md § 6 ("Optional AI extras: at most one, only after the core is done and verified"), we selected and built **End-of-Week Retrospective Summary** as our single optional extra.
 
 | Candidate Feature | Status | Reason & Rationale |
 | :--- | :---: | :--- |
-| **Look-back Carryover Agent (Tool Calling)** | CUT | While technically interesting, the assessment explicitly rates core tenancy and prompt shaping far higher than AI extras. Preserves time budget for rock-solid tenancy tests. |
-| **End-of-Week Retrospective Summary** | CUT | Low evaluation weight. Member-driven `main_task_shipped` boolean provides clear telemetry without additional token burn. |
-| **AI Team Digest Generator** | CUT | Redundant with the lead's team dashboard view. |
+| **End-of-Week Retrospective Summary** | IMPLEMENTED | Chosen as the single optional AI extra. Clean additive pattern, low risk, high-signal retrospective synthesis of shipped vs incomplete tasks with root cause analysis. |
+| **Look-back Carryover Agent (Tool Calling)** | CUT | Deferred in favor of End-of-Week Summary. Avoids complex tool-calling state dependencies in review agent. |
+| **AI Team Digest Generator** | CUT | Redundant with the lead's team dashboard rollup view. |
+
 
 ---
 

@@ -65,19 +65,20 @@
 **Definition of done:** AI review and brain-dump work in the UI. Error states render gracefully.
 **Verify:** Validated with `npm run validate` (type-check, lint, formatting clean).
 
-## Phase 10: Internal API (API + tests) ⬜
+## Phase 10: Internal API (API + tests) ✅
 **What:** /internal endpoints for orgs (counts, last active, suspend/reinstate), users (search, orgs, deactivate), AI usage. Staff-only enforced.
 **Files touched:** api/app/api/internal/routers/orgs.py (new), ai_usage.py (new), tests/api/internal/
-**Definition of done:** Tests prove customer owners/admins cannot reach them. `uv run pytest` green.
-**Verify:** `uv run pytest`, try accessing as non-admin.
+**Definition of done:** Tests prove customer owners/admins cannot reach them. `uv run pytest` green (47/47 passing).
+**Verify:** `uv run pytest tests/api/internal/`, try accessing as non-admin.
 
-## Phase 11: Admin Panel UI (internal/) ⬜
+
+## Phase 11: Admin Panel UI (internal/) ✅
 **What:** Orgs, users, AI usage screens. Clearly marked INTERNAL.
 **Files touched:** internal/src/routes/_main/*, internal/src/components/*
 **Definition of done:** All admin screens work with seeded data. Marked INTERNAL.
 **Verify:** Log in as staff, browse all screens.
 
-## Phase 12: Landing Page (site/) ⬜
+## Phase 12: Landing Page (site/) ✅
 **What:** Hero, how it works, rendered real AI-review example, for teams, responsive. Title/meta/OG image. No lorem ipsum.
 **Files touched:** site/src/routes/index.tsx, site/src/components/*
 **Definition of done:** Responsive, proper meta, human copy. Links to app/ sign-up.

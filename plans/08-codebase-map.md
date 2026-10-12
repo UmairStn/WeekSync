@@ -116,3 +116,13 @@ Per **RULES.md § 1**, agents must never replace or refactor protected core syst
    - Queries `Membership` where `organization_id == target_id` and `user_id == current_user.id`.
    - If no membership exists, raises `404 NOT FOUND` (never 403, preventing ID discovery).
 3. All queries execute with explicit `where(Entity.organization_id == tenant.org.id)`.
+
+### E. Internal Staff Operations & Telemetry
+1. Platform staff log in to `/internal` receiving JWT tokens minted with `aud="internal"` and stored in `internal_access_token` HttpOnly cookie.
+2. Every request on `/internal` is guarded by `CurrentInternalUser` (`user.is_admin == True`).
+3. Endpoints in `api/app/api/internal/routers/`:
+   - `orgs.py`: `GET /internal/orgs` (list with search, counts, last active), `GET /internal/orgs/{id}`, `POST /internal/orgs/{id}/suspend`, `POST /internal/orgs/{id}/reinstate`.
+   - `users.py`: `GET /internal/users` (search by email/name, includes organization memberships), `POST /internal/users/{id}/deactivate`, `POST /internal/users/{id}/reactivate`.
+   - `ai_usage.py`: `GET /internal/ai-usage` (platform totals, per-org aggregates, and recent call logs from `AICallLog`).
+4. In accordance with Decision 1, no endpoint in `/internal` exposes customer plan text or task details.
+

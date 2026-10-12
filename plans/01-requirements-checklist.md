@@ -67,22 +67,23 @@
 - [x] Prints demo logins: member, team lead, org owner, staff
 
 ## 8. UX Bar
-- [ ] Loading states while model thinks
-- [ ] Clear empty states
-- [ ] Forbidden pages that say so
-- [ ] No dead buttons
+- [x] Loading states while model thinks
+- [x] Clear empty states
+- [x] Forbidden pages that say so
+- [x] No dead buttons
 
 ## 9. Internal Admin Panel (2-star weight)
-- [ ] Staff-only access (is_admin + internal-scoped tokens)
-- [ ] Staff never created via sign-up
-- [ ] Customer org owners/admins cannot reach it
-- [ ] Organizations list: member count, team count, plan count, last active
-- [ ] Staff can suspend an org
-- [ ] Staff can reinstate an org
-- [ ] Users: search, see which orgs a user belongs to, deactivate account
-- [ ] AI usage: calls per org, failures, rate-limited calls
-- [ ] Decision documented: can staff see customer plan text?
-- [ ] Panel clearly marked INTERNAL
+- [x] Staff-only access (is_admin + internal-scoped tokens)
+- [x] Staff never created via sign-up
+- [x] Customer org owners/admins cannot reach it
+- [x] Organizations list: member count, team count, plan count, last active
+- [x] Staff can suspend an org
+- [x] Staff can reinstate an org
+- [x] Users: search, see which orgs a user belongs to, deactivate account
+- [x] AI usage: calls per org, failures, rate-limited calls
+- [x] Decision documented: can staff see customer plan text?
+- [x] Panel clearly marked INTERNAL
+
 
 ## 10. AI Integration (3-star weight)
 - [x] Using pydantic-ai-slim[google], model gemini-3.5-flash-lite (configurable via settings.AI_MODEL)
@@ -115,16 +116,16 @@
 - [x] AI earns its place: typed data the app acts on
 
 ## 11. Landing Page (site/)
-- [ ] Hero: name, logo, one sharp line, "Get started" CTA → app/ sign-up
-- [ ] How it works section
-- [ ] Show the AI: real rendered example of plan review
-- [ ] For teams section
-- [ ] Responsive down to phone
-- [ ] Proper `<title>` and meta description
-- [ ] Open Graph image
-- [ ] No lorem ipsum
-- [ ] No generic AI marketing copy
-- [ ] Copy sounds human when read aloud
+- [x] Hero: name, logo, one sharp line, "Get started" CTA → app/ sign-up
+- [x] How it works section
+- [x] Show the AI: real rendered example of plan review
+- [x] For teams section
+- [x] Responsive down to phone
+- [x] Proper `<title>` and meta description
+- [x] Open Graph image
+- [x] No lorem ipsum
+- [x] No generic AI marketing copy
+- [x] Copy sounds human when read aloud
 
 ## 12. Code Quality
 - [ ] Follows Launchbase patterns

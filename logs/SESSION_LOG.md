@@ -346,3 +346,312 @@
   - `cd ~/WeekSync/api && uv run pytest -v`
   - `cd ~/WeekSync/api && uv run ruff check app/`
 
+---
+
+## Session 10: 2026-10-12 11:55 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** Phase 10: Internal API (`api/app/api/internal/`)
+- **What Was Done:**
+  - Extended internal schemas in `api/app/api/internal/schemas.py`:
+    - `UserOrgMembershipResponse`: Organization summary (`id`, `name`, `slug`, `org_role`, `is_suspended`).
+    - `InternalUserResponse`: Added `organizations: list[UserOrgMembershipResponse]` list.
+    - `InternalOrganizationResponse` & `InternalOrganizationsListResponse`: Aggregated metrics including `member_count`, `team_count`, `plan_count`, `last_active`.
+    - `AICallLogResponse`, `OrgAIUsageSummary`, `AIUsageOverviewResponse`: Telemetry schemas for AI calls, failure/rate-limit counts, and token totals.
+  - Implemented service logic in `api/app/services/orgs.py`:
+    - `list_organizations_internal`: Single-query subquery joins calculating member, team, and plan counts plus last activity timestamp with search filtering.
+    - `get_organization_internal`: Detailed metrics for a single organization.
+    - `suspend_organization` & `reinstate_organization`: Platform staff killswitch toggling `is_suspended`.
+  - Updated user service in `api/app/services/users.py`:
+    - Added `search` parameter to `list_users` (name & email filtering).
+    - Added `get_user_organizations_map` batch membership loader.
+    - Added `deactivate_user` and `reactivate_user` account status methods.
+  - Created AI usage telemetry service in `api/app/services/ai_usage.py`:
+    - `AIUsageService.get_overview`: Computes platform-wide call totals, success/failure/rate-limit counts, token usage, per-organization breakdowns, and recent call logs.
+  - Implemented internal routers in `api/app/api/internal/routers/`:
+    - `orgs.py`: `GET /internal/orgs`, `GET /internal/orgs/{org_id}`, `POST /internal/orgs/{org_id}/suspend`, `POST /internal/orgs/{org_id}/reinstate`.
+    - `users.py`: Enhanced `user_list` with search filtering and organization memberships; added `POST /users/{id}/deactivate` and `POST /users/{id}/reactivate`.
+    - `ai_usage.py`: `GET /internal/ai-usage` providing platform telemetry.
+  - Registered new routers in `api/app/api/internal/router.py` and openapi tags (`"orgs"`, `"ai_usage"`) in `api/app/main.py`.
+  - Built comprehensive test suites in `api/tests/api/internal/`:
+    - `test_orgs.py`: Tests for aggregate counts, search, suspension/reinstatement lockout, customer 401/403 rejection, and Decision 1 enforcement (verifying plan text and task titles are never exposed to staff).
+    - `test_users.py`: Tests for user search by name/email, organization memberships inclusion, account deactivation/reactivation, and non-admin access lockout.
+    - `test_ai_usage.py`: Tests for platform telemetry totals, per-org aggregations, recent call logs, and customer access rejection.
+  - Updated architectural tracking in `plans/00-master-plan.md`, `plans/03-decisions.md` (Decision 11), `plans/07-change-log.md`, and `plans/08-codebase-map.md`.
+- **What's In Progress:** Phase 10 is 100% complete and verified! All 47 pytest tests passed, `ruff check` passed with zero errors, and Orval client generation in `internal/` completed cleanly. Ready to proceed to Phase 11: Admin Panel UI (`internal/`).
+- **The Exact Next Step:**
+  - Proceed to Phase 11: Build Admin Panel UI in `internal/`:
+    1. Update branding in `internal/src/components/` and `__root.tsx` ensuring it is clearly marked `INTERNAL` per brief requirements.
+    2. Organizations management screen (`internal/src/routes/_main/organizations.tsx`): searchable list with member, team, and plan counts, last active timestamps, and suspension/reinstatement toggle button.
+    3. AI usage telemetry dashboard (`internal/src/routes/_main/ai-usage.tsx`): total call volume, success/failure/rate-limit metrics, token usage, per-org breakdown, and recent telemetry logs.
+    4. Enhanced Users screen (`internal/src/routes/_main/users.tsx`): display organization memberships badges and account deactivation/reactivation actions.
+    5. Validate with `npm run validate` in `internal/`.
+- **Blockers:** None.
+- **Files Touched:**
+  - `api/app/api/internal/schemas.py`
+  - `api/app/services/orgs.py`
+  - `api/app/services/users.py`
+  - `api/app/services/ai_usage.py`
+  - `api/app/api/internal/routers/orgs.py`
+  - `api/app/api/internal/routers/users.py`
+  - `api/app/api/internal/routers/ai_usage.py`
+  - `api/app/api/internal/router.py`
+  - `api/app/main.py`
+  - `api/tests/api/internal/__init__.py`
+  - `api/tests/api/internal/test_orgs.py`
+  - `api/tests/api/internal/test_users.py`
+  - `api/tests/api/internal/test_ai_usage.py`
+  - `internal/package-lock.json`
+  - `internal/src/api/endpoints/` (regenerated)
+  - `internal/src/api/model/` (regenerated)
+  - `internal/src/api/zod/` (regenerated)
+  - `plans/00-master-plan.md`
+  - `plans/01-requirements-checklist.md`
+  - `plans/03-decisions.md`
+  - `plans/07-change-log.md`
+  - `plans/08-codebase-map.md`
+  - `logs/SESSION_LOG.md`
+- **Commands to Verify:**
+  - `cd ~/WeekSync/api && uv run pytest -v`
+  - `cd ~/WeekSync/api && uv run ruff check app/ tests/api/internal/`
+  - `cd ~/WeekSync/internal && npm run validate`
+
+---
+
+## Session 11: 2026-10-12 13:45 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** Phase 11: Admin Panel UI (`internal/`) & Phase 12: Marketing Landing Page (`site/`)
+- **What Was Done:**
+  - **Phase 11 (Admin Panel UI in `internal/`):**
+    - Updated `internal/src/components/Logo.tsx` with WeekSync logomark and prominent `INTERNAL` staff pill badge.
+    - Updated `internal/src/routes/__root.tsx` with `WeekSync Internal` title and description.
+    - Updated `internal/src/components/dashboard/sidebar.tsx` with full navigation items for Dashboard (`/dashboard`), Organizations (`/organizations`), Users (`/users`), and AI Telemetry (`/ai-usage`), removing all remnants of Launchbase strings.
+    - Built `internal/src/routes/_main/organizations.tsx` using `industrial-brutalist-ui`: real-time name/slug search, status filters, dense data table displaying member/team/plan counts and last active dates, and 1-click **Suspend** and **Reinstate** controls with confirmation modals. Strictly enforces Decision 1 (zero customer plan text exposed).
+    - Updated `internal/src/routes/_main/users.tsx`: added name/email search input, multi-tenant organization membership badges with role details (`Acme Corp (owner)`), and 1-click account **Deactivate** and **Reactivate** actions with self-protection.
+    - Built `internal/src/routes/_main/ai-usage.tsx`: Gemini telemetry surveillance with KPI cards (total calls, success rate %, provider failures, HTTP 429 rate limits, tokens), per-organization consumption table, and live 50-invocation audit log with latency and error traces.
+    - Updated `internal/src/routes/_main/dashboard.tsx`: platform command summary with live fleet counts, user directory counts, and AI quota volume with direct operational jump links.
+    - Resolved `eslint(curly)` single-line `if` statements in `src/routes/_main/organizations.tsx` and `src/routes/_main/ai-usage.tsx`.
+  - **Phase 12 (Marketing Landing Page in `site/`):**
+    - Created `site/src/components/logo.tsx` with WeekSync geometric logomark and brand typography lockup.
+    - Updated `site/src/routes/__root.tsx` with title, meta descriptions, and full Open Graph / Twitter Card social tags.
+    - Built complete marketing landing page in `site/src/routes/index.tsx` based on `design-taste-frontend` + `brandkit`:
+      - Top announcement bar and sticky header with WeekSync branding and links.
+      - High-impact Hero section: "Monday commitments. AI-coached outcomes. Friday results." with primary CTA linking to `http://localhost:3001/signup`.
+      - Cadence stats strip (5 min planning, 1 main goal, 100% checkable deliverables, 0 standups).
+      - Interactive live AI Plan Review demo: interactive toggle showing how AI catches vague effort ("Work on billing webhook fixes") and produces concrete, testable rewrites ("Stripe webhook idempotency key handling with expired card retries verified on sandbox").
+      - The 3-Step Rhythm breakdown: 01 Monday Plan Commitment, 02 Mid-week AI Review & Lead Sign-off, 03 Friday Outcomes & Shipped Goals.
+      - Engineering leadership section with live team rollup card preview.
+      - Old Way vs. WeekSync cadence comparison matrix.
+      - Comprehensive FAQ addressing weekly cadence rationale, AI review mechanics, and data privacy.
+      - High-converting closing CTA and branded footer.
+    - Generated `site/src/routeTree.gen.ts` for clean routing compilation.
+  - **Tracking & Plan Updates:**
+    - Marked Phase 11 and Phase 12 as done (✅) in `plans/00-master-plan.md`.
+    - Ticked all Section 9 and Section 11 items in `plans/01-requirements-checklist.md`.
+    - Logged Decision 12 (Admin Panel UI) and Decision 13 (Landing Page) in `plans/03-decisions.md`.
+    - Appended audit trail in `plans/07-change-log.md`.
+- **What's In Progress:** Phase 11 and Phase 12 are completely implemented! Ready for user testing and verification, then proceeding to Phase 13 (Cleanup & Submission).
+- **The Exact Next Step:**
+  - Provide human lead with manual verification instructions and testing commands for `internal/` (port 3002) and `site/` (port 3000).
+  - Await feedback, then complete Phase 13 (Cleanup, seed script polish, README/SUBMISSION.md creation).
+- **Blockers:** None.
+- **Files Touched:**
+  - `internal/src/components/Logo.tsx`
+  - `internal/src/routes/__root.tsx`
+  - `internal/src/components/dashboard/sidebar.tsx`
+  - `internal/src/routes/_main/organizations.tsx`
+  - `internal/src/routes/_main/users.tsx`
+  - `internal/src/routes/_main/ai-usage.tsx`
+  - `internal/src/routes/_main/dashboard.tsx`
+  - `internal/src/routeTree.gen.ts`
+  - `site/src/components/logo.tsx`
+  - `site/src/routes/__root.tsx`
+  - `site/src/routes/index.tsx`
+  - `site/src/routeTree.gen.ts`
+  - `plans/00-master-plan.md`
+  - `plans/01-requirements-checklist.md`
+  - `plans/03-decisions.md`
+  - `plans/07-change-log.md`
+  - `logs/SESSION_LOG.md`
+- **Commands to Verify:**
+  - `cd ~/WeekSync/internal && npm run validate`
+  - `cd ~/WeekSync/site && npm install && npm run validate`
+  - Open `http://localhost:3002` in browser (Staff Console)
+  - Open `http://localhost:3000` in browser (Marketing Site)
+
+---
+
+## Session 12: 2026-10-12 14:05 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** Comprehensive UI/UX Redesign Planning
+- **What Was Done:**
+  - Evaluated user request to completely transform the UI using `.agents/skills/design-taste-frontend-v1/SKILL.md` and `.agents/skills/redesign-existing-projects/SKILL.md`.
+  - Conducted full visual and usability audit across `app/`, `site/`, and `internal/`.
+  - Formulated comprehensive architectural blueprint in `plans/14-ui-redesign-plan.md` addressing all user friction points (workspace navigation, weekly plan studio commitment card, dual-pillar sub-goals and GTM goals bento, AI Co-Pilot slide-over drawer, team quick-review drawer, split-screen auth, and marketing landing page polish).
+  - Ensured strict compliance with `RULES.md` (no backend changes, no hand-written fetches, no heavy external animation bundles, plan before code).
+  - Updated `plans/07-change-log.md` with audit trail.
+- **What's In Progress:** Plan created and documented. Awaiting human lead review and approval before touching any code.
+- **The Exact Next Step:**
+  - Human lead reviews `plans/14-ui-redesign-plan.md`.
+## Session 13: 2026-10-12 15:48 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** Phase 13 (Full 3-Surface UI Redesign & Brand Orange Color Alignment)
+- **What Was Done:**
+  - Redesigned all 3 frontends (`app/` on port 3001, `site/` on port 3000, and `internal/` on port 3002) without touching the backend (`api/`).
+  - Corrected color architecture to faithfully match the authentic WeekSync Orange (`#FD6402` / `oklch(0.64 0.215 42)` in light mode, `oklch(0.67 0.215 42)` in dark mode) per human lead feedback, eliminating mismatched blue secondary tones.
+  - Surface 1: Customer SaaS App (`app/`):
+    - `app/src/styles.css`: Full color tokens updated to WeekSync Orange + deep neutral Zincs (`zinc-950`/`zinc-900`), `.liquid-glass`, `.diffusion-shadow`.
+    - `app/src/components/ui/button.tsx`: Added `active:scale-[0.98]` tactile scale feedback.
+    - `app/src/routes/login.tsx`: Modern split-screen layout with tabbed auth, organization create/join mode, and role-grouped Instant Demo Sandbox selector.
+    - `app/src/components/dashboard/sidebar.tsx`: Fluid navigation chrome with elevated workspace & team switcher dropdown, active checkmarks, and role badges.
+    - `app/src/routes/_main.tsx`: Container modernized to full-viewport fluid canvas.
+    - `app/src/routes/_main/dashboard.tsx`: Weekly Plan Studio overhaul with bold sans typography, 4-stage commitment lifecycle stepper, Commitment Hero Card for Main Task with celebratory shipping toggle, dual-pillar Sub-Goals & GTM execution bento, and floating sticky bottom dock.
+    - `app/src/components/ai/PlanReviewPanel.tsx`: Polished badges with calibrated tints (`vague_activity`, `missing_impact`, `missing_gtm`, `unrealistic_scope`), slide-in animation, and 1-click "Apply Rewrite" action.
+    - `app/src/routes/_main/team.tsx`: Team health KPI ribbon, visual member cards, and quick lead review actions.
+    - `app/src/routes/_main/history.tsx` and `settings.tsx`: Elevated layout, copyable invite tokens, and refined status pills.
+  - Surface 2: Marketing Landing Page (`site/`):
+    - `site/src/styles.css`: Harmonized tokens to WeekSync Orange, `.liquid-glass`, `.diffusion-shadow`.
+    - `site/src/components/ui/button.tsx`: Tactile active scale feedback.
+    - `site/src/routes/index.tsx`: Asymmetric hero with brand orange ambient glow, live interactive AI Plan Coach demo with 1-click rewrite toggle, 3-step cadence walkthrough, and cadence comparison table.
+  - Surface 3: Platform Staff Console (`internal/`):
+    - `internal/src/styles.css`: Aligned tokens with brand orange while preserving tactical industrial telemetry identity.
+    - `internal/src/components/dashboard/sidebar.tsx`: Elevated active navigation state.
+    - `internal/src/routes/_main/dashboard.tsx`, `organizations.tsx`, `login.tsx`, `FullScreenLoader.tsx`: Harmonized with design system tokens.
+  - Verification:
+    - User validated `internal/` with `npm run format && npm run validate` (0 warnings, 0 errors, clean format).
+    - Validated `site/` and `app/` with clean type-check, lint, and formatting.
+  - Updated `plans/07-change-log.md` and `logs/SESSION_LOG.md`.
+- **What's In Progress:** Complete redesign across all 3 frontends is implemented and verified. Ready for user walkthrough and inspection.
+- **The Exact Next Step:**
+  - Await human lead review and inspection of the 3 running surfaces (`http://localhost:3001`, `http://localhost:3000`, `http://localhost:3002`).
+  - Await human lead instructions for git commit (per rules, no automatic commits).
+- **Blockers:** None.
+- **Files Touched:**
+  - `app/src/styles.css`
+  - `app/src/components/ui/button.tsx`
+  - `app/src/routes/login.tsx`
+  - `app/src/components/dashboard/sidebar.tsx`
+  - `app/src/routes/_main.tsx`
+  - `app/src/routes/_main/dashboard.tsx`
+  - `app/src/components/ai/PlanReviewPanel.tsx`
+  - `app/src/routes/_main/team.tsx`
+  - `app/src/routes/_main/history.tsx`
+  - `app/src/routes/_main/settings.tsx`
+  - `site/src/styles.css`
+  - `site/src/components/ui/button.tsx`
+  - `site/src/routes/index.tsx`
+  - `internal/src/styles.css`
+  - `internal/src/components/ui/button.tsx`
+  - `internal/src/components/dashboard/sidebar.tsx`
+  - `internal/src/routes/_main/dashboard.tsx`
+  - `internal/src/routes/_main/organizations.tsx`
+  - `internal/src/routes/login.tsx`
+  - `internal/src/components/FullScreenLoader.tsx`
+  - `plans/07-change-log.md`
+  - `logs/SESSION_LOG.md`
+- **Commands to Verify:**
+  - Open `http://localhost:3001` (Customer SaaS App)
+  - Open `http://localhost:3000` (Marketing Landing Page)
+  - Open `http://localhost:3002` (Platform Staff Console)
+
+---
+
+## Session 14: 2026-10-12 17:22 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** Monochrome Black & White UI Redesign & Clutter Elimination
+- **What Was Done:**
+  - Redesigned and simplified UI across all three frontends per user approval of `ui-redesign-plan.md` using `.agents/skills/high-end-visual-design/SKILL.md`:
+    1. **Elimination of Orange Accent:** Removed `#FD6402` and orange styling entirely from all chrome, buttons, indicators, steppers, and gradients across `app/`, `internal/`, and `site/`. The color is strictly confined to the logo brand mark (`Logo.tsx`) only.
+    2. **Shared Monochrome Token System:** Swapped CSS tokens in `app/src/styles.css`, `internal/src/styles.css`, and `site/src/styles.css` to high-contrast deep black (`oklch(0.145 0 0)`) and white (`oklch(0.99 0 0)`), locked to light mode.
+    3. **Sidebar Architecture:** Fixed expanded width to 220px in both `app/` and `internal/`, removed orange dots, added high-contrast active item pill styling and monochrome indicators.
+    4. **Customer App (`app/`):**
+       - `login.tsx`: Clean pill tab switchers, high-contrast submit button, monochrome status indicator.
+       - `_main/dashboard.tsx`: Simplified action buttons (AI Brain Dump, AI Review, Save Draft, Submit for Review) with pill geometry, high-contrast black/white lifecycle stepper, removed confusing clutter and harsh colors.
+       - `_main/history.tsx`: Replaced orange target icon with neutral monochrome icon.
+    5. **Admin Console (`internal/`):**
+       - Added persistent `⚠ INTERNAL PLATFORM OPERATIONS — STAFF PRIVILEGED CONSOLE` top header banner.
+       - Updated sidebar to 220px fixed width with high-contrast active item pill styling.
+       - Removed `dark` lock from login page and updated submit button to pill shape.
+    6. **Marketing Site (`site/`):**
+       - Cleaned hero section of orange glow and amber/orange text gradients, adopting clean bold typography and wavy underline accent.
+       - Updated all primary CTAs to high-contrast pill buttons.
+    7. **Rule Adherence:**
+       - Added strict lesson learned in `AGENTS.md`: "DO NOT run tests or validation commands in the terminal. The human lead will verify, test, and validate manually."
+       - Documented Decision 14 in `plans/03-decisions.md`.
+       - Absolutely zero backend (`api/`) files modified.
+- **What's In Progress:** Complete UI redesign and simplification is in place. No further terminal test commands executed. Ready for human lead's manual verification.
+- **The Exact Next Step:**
+  - Human lead verifies the updated UI manually in the browser across ports 3001, 3000, and 3002.
+  - Await human lead feedback or commit instructions.
+- **Blockers:** None.
+- **Files Touched:**
+  - `AGENTS.md`
+  - `plans/03-decisions.md`
+  - `logs/SESSION_LOG.md`
+  - `app/src/styles.css`
+  - `app/src/components/dashboard/sidebar.tsx`
+  - `app/src/routes/login.tsx`
+  - `app/src/routes/_main/dashboard.tsx`
+  - `app/src/routes/_main/history.tsx`
+  - `internal/src/styles.css`
+  - `internal/src/components/dashboard/sidebar.tsx`
+  - `internal/src/routes/_main.tsx`
+  - `internal/src/routes/login.tsx`
+  - `site/src/styles.css`
+  - `site/src/routes/index.tsx`
+- **Manual Verification URLs (Servers already running via .tmuxp.yaml):**
+  - Customer App: `http://localhost:3001`
+  - Marketing Landing: `http://localhost:3000`
+  - Staff Admin Console: `http://localhost:3002`
+
+---
+
+## Session 15: 2026-10-12 19:15 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** Phase 15 (Optional AI Extra: End-of-Week Retrospective Summary)
+- **What Was Done:**
+  - Implemented the single approved optional AI feature from assessment brief § "If you have time left over" (Option 1: End-of-Week Summary):
+    1. **Backend Schemas (`api/app/api/app/schemas.py`):** Added `WeekSummaryResult` (headline, shipped list, not_shipped list, why_not, next_week_suggestion) and `WeekSummaryRequest` (plan_id). Purely additive.
+    2. **AI Service Function (`api/app/services/ai.py`):** Added `WEEK_SUMMARY_SYSTEM_PROMPT`, `_format_plan_for_summary(plan: Plan)`, and `generate_week_summary` with 15s timeout, model-not-found fallback to `gemini-2.5-flash`, and telemetry logging in `ai_call_logs` (`feature="week_summary"`).
+    3. **AI Endpoint (`api/app/api/app/routers/ai.py`):** Added `POST /orgs/{org_id}/ai/week-summary` gated by `RequireOrgMember`, validating plan status is `approved` or `done` (rejecting draft plans with HTTP 400 `PLAN_NOT_FINALIZED`), and restricting invocation to plan owner or team lead / org admin (HTTP 403 `PERMISSION_DENIED`).
+    4. **Offline Test Suite (`api/tests/api/app/test_ai.py`):** Added `test_ai_week_summary_offline_success` (using `TestModel` fixture to test full pipeline and `AICallLog` telemetry offline) and `test_ai_week_summary_draft_plan_rejected`.
+    5. **Typed Client Models & Hook (`app/src/api/`):** Added `WeekSummaryRequest`, `WeekSummaryResult`, and `useAiWeekSummary` React Query mutation hook in `app/src/api/endpoints/ai/ai.ts`.
+    6. **UI Component (`app/src/components/ai/WeekSummaryDialog.tsx`):** Built modern dialog displaying weekly outcome headline, Shipped vs Not Shipped task cards, root-cause reflection, next-week carryover advice, and 1-click clipboard copy.
+    7. **Dashboard Integration (`app/src/routes/_main/dashboard.tsx`):** Added "AI Week Summary" button to top action bar, Friday outcome block, and bottom summary dock when a plan is approved or completed.
+    8. **Architecture Documentation:** Logged Decision 15 in `plans/03-decisions.md`, updated `plans/06-cut-list.md`, and appended `plans/07-change-log.md`.
+    9. **Lint / Type Fix:** Removed unused `FileText` import in `app/src/components/ai/WeekSummaryDialog.tsx` resolving TS6133.
+    10. **Adherence to Constraints:** Zero core modifications, no tests run in terminal per human verification rule, zero automatic commits.
+- **What's In Progress:** Feature is fully implemented across backend and frontend. Ready for human lead verification and test execution.
+- **The Exact Next Step:**
+  - Human lead verifies the test suite with `uv run pytest -v tests/api/app/test_ai.py`
+  - Human lead verifies the feature manually in Customer App (`http://localhost:3001`): Open an approved or completed plan and click "AI Week Summary".
+  - Await human lead feedback or commit instructions.
+- **Blockers:** None.
+- **Files Touched:**
+  - `api/app/api/app/schemas.py`
+  - `api/app/services/ai.py`
+  - `api/app/api/app/routers/ai.py`
+  - `api/tests/api/app/test_ai.py`
+  - `app/src/api/model/weekSummaryRequest.ts`
+  - `app/src/api/model/weekSummaryResult.ts`
+  - `app/src/api/model/index.ts`
+  - `app/src/api/endpoints/ai/ai.ts`
+  - `app/src/components/ai/WeekSummaryDialog.tsx`
+  - `app/src/routes/_main/dashboard.tsx`
+  - `plans/03-decisions.md`
+  - `plans/06-cut-list.md`
+  - `plans/07-change-log.md`
+  - `logs/SESSION_LOG.md`
+- **Commands to Verify:**
+  - Backend tests: `cd ~/WeekSync/api && uv run pytest -v tests/api/app/test_ai.py`
+  - All tests: `cd ~/WeekSync/api && uv run pytest -v`
+  - Frontend typecheck & lint: `cd ~/WeekSync/app && npm run validate`
+  - Customer App URL: `http://localhost:3001`
+
+
+
+
+
+
+
+
+

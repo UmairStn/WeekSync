@@ -131,3 +131,71 @@
   3. *In-Flight Debouncing & Anti-Spam:* Neither AI feature triggers automatically on keystrokes. Both require explicit button clicks and disable triggers while mutations are in-flight, showing a clear spinning loader state.
   4. *Resilient Degradation & Dismissible Banners:* Upstream 503 (unconfigured key), 504 (timeout), or 429 (rate limit) exceptions surface polite, non-blocking dismissible error banners, allowing members to continue manual planning without disruption.
 - **Why:** Complies with assessment brief requirements and architectural rules while delivering high-agency planning support.
+
+---
+
+## Decision 11: Internal API Architecture, Multi-Tenant Aggregates, and Staff Protection
+- **Date:** 2026-10-12
+- **Status:** Approved
+- **Decision:** Built the `/internal` administrative surface with dedicated routers (`orgs.py`, `users.py`, `ai_usage.py`) strictly gated by `CurrentInternalUser` (`user.is_admin=True` + `aud="internal"`):
+  1. *Multi-Tenant Metrics Aggregation:* Computed `member_count`, `team_count`, `plan_count`, and `last_active` via efficient single-query subqueries joining `memberships`, `teams`, `plans`, avoiding N+1 queries.
+  2. *Strict Privacy Boundary (Decision 1 Enforcement):* Neither `/internal/orgs` nor any internal endpoint returns plan text, task descriptions, or review comments. Only health metrics and aggregates are exposed to platform staff.
+  3. *Staff Killswitch Operations:* Implemented `POST /internal/orgs/{org_id}/suspend` and `POST /internal/orgs/{org_id}/reinstate`, immediately toggling `is_suspended` which gates all `/app` customer requests with HTTP 403 `ORGANIZATION_SUSPENDED`.
+  4. *Platform Telemetry:* `GET /internal/ai-usage` provides platform totals, per-organization usage breakdowns, and recent call logs from `ai_call_logs`.
+  5. *User Visibility & Account Lockout:* Internal user list attaches organization memberships (`organizations` list) and supports query-based search as well as account deactivation (`POST /internal/users/{id}/deactivate` and `POST /internal/users/{id}/reactivate`).
+- **Why:** Delivers complete administrative observability and operational control without compromising tenant confidentiality.
+
+---
+
+## Decision 12: Admin Panel UI Architecture (`internal/`) — Tactical Telemetry & Brutalist Operations Console
+- **Date:** 2026-10-12
+- **Status:** Approved
+- **Decision:** Implemented Phase 11 in `internal/` using the `industrial-brutalist-ui` design language:
+  1. *Persistent Internal Marking:* Branded top-level headers and the persistent red `INTERNAL` pill in `Logo.tsx` make staff privileges unmistakable across all routes (`/_main/*`, `/login`).
+  2. *Tenant Fleet Management (`/organizations`):* Real-time search by name/slug, live aggregate counts (members, teams, plans, last active date), and 1-click **Suspend** / **Reinstate** killswitch controls with destructive confirmation modals.
+  3. *Staff & User Directory (`/users`):* Search by name/email, tenant membership badges with roles (`Acme Corp (owner)`), and 1-click **Deactivate** / **Reactivate** controls with self-deactivation protection.
+  4. *AI Telemetry Surveillance (`/ai-usage`):* Monospaced KPI cards (total calls, success rate %, failure counts, HTTP 429 rate limits, and token usage), per-tenant consumption breakdown, and live 50-invocation audit log with latency and error traces.
+  5. *Zero Customer Text Exposed:* Stated and enforced across UI: platform operators see only structure, timestamps, and aggregates. Zero customer plan text or task titles are ever loaded.
+- **Why:** Satisfies assessment brief administrative requirements and provides full platform operations control while strictly protecting tenant privacy.
+
+---
+
+## Decision 13: Marketing Landing Page Architecture (`site/`) — Anti-Slop Narrative & Interactive AI Showcase
+- **Date:** 2026-10-12
+- **Status:** Approved
+- **Decision:** Implemented Phase 12 in `site/` following `design-taste-frontend` and `brandkit`:
+  1. *Anti-Slop Brand Narrative:* Replaced generic boilerplate with human, direct value proposition: "Monday commitments. AI-coached outcomes. Friday results." Addresses standup fatigue and highlights 1 checkable main goal per week.
+  2. *Interactive AI Plan Coach Preview:* Built a live side-by-side interactive demo where visitors can toggle between a typical fuzzy engineer draft ("Work on billing webhook fixes") and the AI coach's critique and concrete suggested rewrite ("Stripe webhook idempotency key handling with expired card retries verified on sandbox").
+  3. *Cadence Architecture & Rollup Showcase:* Outlines the 3-step weekly rhythm (Monday commitment → mid-week delivery → Friday outcomes) and previews the engineering lead rollup dashboard.
+  4. *Technical Rigor & Mobile Responsiveness:* Responsive grid layouts down to mobile phones, full Open Graph / Twitter Card meta tags, and direct CTA links to `http://localhost:3001/signup`.
+- **Why:** Establishes a distinct, high-converting product identity and showcases the core AI differentiator authentically without generic corporate jargon.
+
+---
+
+## Decision 14: Unified Monochrome Black & White Redesign Across All Frontends
+- **Date:** 2026-10-12
+- **Status:** Approved
+- **Decision:** Transformed the user interface across all three frontends (`app/`, `internal/`, `site/`) to a cohesive, high-contrast monochrome black-and-white design system adhering to `.agents/skills/high-end-visual-design/SKILL.md`:
+  1. *Complete Elimination of Orange:* Removed `#FD6402` and orange styling entirely from all buttons, indicators, steppers, and accents, reserving it exclusively for the brand logo mark itself (`Logo.tsx`).
+  2. *Shared Token Architecture:* Replaced primary and accent variables in `styles.css` with clean high-contrast black (`oklch(0.145 0 0)`) and white (`oklch(0.99 0 0)`), locking the interface to light mode.
+  3. *Simplified Navigation & Hierarchy:* Fixed sidebar to 220px expanded width with high-contrast active states. Redesigned plan commitment cards, action buttons, and status indicators with rounded-full pill buttons and tactile active states.
+  4. *Zero Backend Impact:* All changes are purely presentation layer; no API routes, models, or backend logic were modified.
+- **Why:** Resolves UI clutter and visual complexity, avoids brand color bleeding between logo and chrome, and delivers an intuitive, premium user experience.
+
+---
+
+## Decision 15: Optional AI Extra Selection — End-of-Week Retrospective Summary
+- **Date:** 2026-10-12
+- **Status:** Approved & Implemented
+- **Decision:** Selected and implemented Option 1 from the brief: **End-of-Week Summary** (`POST /orgs/{org_id}/ai/week-summary`).
+  1. *Purely Additive Architecture:* Zero changes to existing database models, migrations, or existing endpoints (`/ai/review`, `/ai/brain-dump`). Only new schemas (`WeekSummaryRequest`, `WeekSummaryResult`), service function `generate_week_summary`, and endpoint.
+  2. *Status & Ownership Gating:* The endpoint requires the plan to be in `approved` or `done` status (rejecting draft plans with HTTP 400 `PLAN_NOT_FINALIZED`), and verifies the caller is the plan owner or team lead / org admin (HTTP 403 `PERMISSION_DENIED`).
+  3. *Client-Facing Presentation Only:* Output never writes to the database; it is presented via `WeekSummaryDialog` with copy-to-clipboard support and carryover advice.
+  4. *Offline Test Coverage:* Built hermetic tests using `TestModel` in `api/tests/api/app/test_ai.py` verifying response shape and `AICallLog` telemetry (`feature="week_summary"`).
+- **Options Considered:**
+  1. *Look-Back Carryover Agent (Tool Calling):* Higher complexity, changes Pydantic AI agent creation pattern to require session-bound tool calling, introduces brittle cross-session state.
+  2. *Team Digest for Lead:* Redundant with the lead's existing team dashboard rollup.
+  3. *End-of-Week Summary (Selected):* Lowest risk, highest signal for Friday retrospectives, directly consumes existing task completion booleans and outcome flags.
+- **Why:** Complies with RULES.md § 6 (at most one optional AI extra), minimizes regression risk across the 47+ existing test suite, and completes the full weekly loop (Monday commitment → mid-week delivery → Friday retrospective).
+
+

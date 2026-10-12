@@ -40,6 +40,7 @@ Append an entry to logs/SESSION_LOG.md with:
 ### Lessons learned
 - Session logs belong in `logs/SESSION_LOG.md`, keeping `plans/` focused strictly on architecture and specifications.
 - DO NOT automatically run git commit. The human lead reviews and controls commits; agents track all work in the `logs/` folder and wait for explicit commit instructions.
+- DO NOT run tests or validation commands in the terminal. The human lead will verify, test, and validate manually.
 
 ### Commit discipline
 - DO NOT automatically commit. Wait for the human lead's explicit approval or instructions before any git commit.

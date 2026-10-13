@@ -197,5 +197,3 @@
   2. *Team Digest for Lead:* Redundant with the lead's existing team dashboard rollup.
   3. *End-of-Week Summary (Selected):* Lowest risk, highest signal for Friday retrospectives, directly consumes existing task completion booleans and outcome flags.
 - **Why:** Complies with RULES.md § 6 (at most one optional AI extra), minimizes regression risk across the 47+ existing test suite, and completes the full weekly loop (Monday commitment → mid-week delivery → Friday retrospective).
-
-

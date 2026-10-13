@@ -1,6 +1,6 @@
 # RULES.md: hard rules for every agent (read before touching any code)
 
-These rules override convenience. If a task seems to require breaking one, STOP and ask the human lead first, and log the question in plans/03-decisions.md.
+These rules override convenience. If a task seems to require breaking one, STOP and ask the human lead first, and log the question in docs/03-decisions.md.
 
 ## 1. Launchbase core: extend, never replace
 Protected (do NOT rewrite, replace, rename, or bypass):
@@ -16,7 +16,7 @@ Allowed (additive changes):
 - New models, migrations, routers, services, schemas, dependencies, and tests that follow the existing users resource pattern.
 - Small, minimal edits to core files when strictly needed (e.g. registering a router, adding a nullable column, adding a sign-up endpoint that reuses the existing hashing and token code).
 - Rebranding user-facing strings (every "Launchbase" must go by the end).
-Every edit to a core file must be minimal, logged in plans/03-decisions.md with the reason, and committed on its own with a clear message.
+Every edit to a core file must be minimal, logged in docs/03-decisions.md with the reason, and committed on its own with a clear message.
 
 ## 2. Naming safety
 - `is_admin` = PLATFORM STAFF. Never use it for customer org permissions.
@@ -48,20 +48,20 @@ Every edit to a core file must be minimal, logged in plans/03-decisions.md with 
 ## 6. Scope
 - Out of scope, do NOT build: billing, real email (verification/reset), SSO/social login, GitHub integration, notifications, deployment.
 - Optional AI extras: at most one, only after the core is done and verified.
-- Don't add features, dependencies, or refactors that weren't planned. Log scope ideas in plans/06-cut-list.md instead.
+- Don't add features, dependencies, or refactors that weren't planned. Log scope ideas in docs/06-cut-list.md instead.
 
 ## 7. UI work
-- Before building any UI phase, read plans/09-ui-skills.md and the chosen skills it lists, and apply them.
+- Before building any UI phase, review the chosen skills in .agents/skills/ and apply them.
 - Skills and design preferences never override this file: no new UI framework, component library, or styling system, and no hand-written fetch calls to our own API.
 - Every screen has loading, empty, error, and forbidden states where relevant. No dead buttons.
 
 ## 8. Process and tracking
 - Plan before code. No product code before the human approves the plan.
-- Work in the phase order and timeline defined in plans/00-master-plan.md and plans/10-dev-flow-and-timeline.md. Don't jump ahead to a later phase.
-- Follow the per-phase working loop in plans/10-dev-flow-and-timeline.md.
+- Work in the phase order defined in plans/00-master-plan.md. Don't jump ahead to a later phase.
+- Follow the per-phase working loop defined in the master plan.
 - DO NOT automatically run git commit. The human lead reviews and controls commits; agents track all work in the logs/ folder.
 - Tick checklist items only when verified (tests pass or manually checked).
 - Update logs/SESSION_LOG.md at the end of every session.
-- Every change is recorded in plans/07-change-log.md and, if it affects structure, plans/08-codebase-map.md, in the same commit as the change. An unlogged change counts as unfinished work.
+- Every change is recorded in plans/07-change-log.md and, if it affects structure, docs/08-codebase-map.md, in the same commit as the change. An unlogged change counts as unfinished work.
 - Never commit secrets (api/.env). Remove any dead code you leave behind.
 - When corrected by the human, add a rule here or to AGENTS.md "Lessons learned".

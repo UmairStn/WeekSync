@@ -116,10 +116,14 @@ async def seed():
     print("Seeding WeekSync database...")
 
     # 1. Helper to get or create a user
-    async def get_or_create_user(email: str, first_name: str, last_name: str, is_admin: bool = False) -> User:
+    async def get_or_create_user(
+        email: str, first_name: str, last_name: str, is_admin: bool = False
+    ) -> User:
         user = (
-            await session.execute(select(User).where(User.email == email.lower()))
-        ).scalars().first()
+            (await session.execute(select(User).where(User.email == email.lower())))
+            .scalars()
+            .first()
+        )
         if not user:
             user = User(
                 email=email.lower(),
@@ -141,25 +145,42 @@ async def seed():
     # 2. Helper to get or create an organization
     async def get_or_create_org(name: str, slug: str, owner_id) -> Organization:
         org = (
-            await session.execute(select(Organization).where(Organization.slug == slug))
-        ).scalars().first()
+            (
+                await session.execute(
+                    select(Organization).where(Organization.slug == slug)
+                )
+            )
+            .scalars()
+            .first()
+        )
         if not org:
             org = Organization(name=name, slug=slug, is_suspended=False)
             session.add(org)
             await session.flush()
-            session.add(Membership(organization_id=org.id, user_id=owner_id, org_role="owner"))
+            session.add(
+                Membership(organization_id=org.id, user_id=owner_id, org_role="owner")
+            )
             await session.flush()
         return org
 
     # 3. Helper to ensure membership
     async def ensure_membership(org_id, user_id, role: str):
         mem = (
-            await session.execute(
-                select(Membership).where(Membership.organization_id == org_id, Membership.user_id == user_id)
+            (
+                await session.execute(
+                    select(Membership).where(
+                        Membership.organization_id == org_id,
+                        Membership.user_id == user_id,
+                    )
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
         if not mem:
-            session.add(Membership(organization_id=org_id, user_id=user_id, org_role=role))
+            session.add(
+                Membership(organization_id=org_id, user_id=user_id, org_role=role)
+            )
             await session.flush()
         else:
             mem.org_role = role
@@ -168,10 +189,16 @@ async def seed():
     # 4. Helper to get or create team
     async def get_or_create_team(org_id, name: str, lead_id) -> Team:
         team = (
-            await session.execute(
-                select(Team).where(Team.organization_id == org_id, Team.name == name)
+            (
+                await session.execute(
+                    select(Team).where(
+                        Team.organization_id == org_id, Team.name == name
+                    )
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
         if not team:
             team = Team(organization_id=org_id, name=name, lead_user_id=lead_id)
             session.add(team)
@@ -184,10 +211,16 @@ async def seed():
     # 5. Helper to add team member
     async def ensure_team_member(team_id, user_id):
         tm = (
-            await session.execute(
-                select(TeamMember).where(TeamMember.team_id == team_id, TeamMember.user_id == user_id)
+            (
+                await session.execute(
+                    select(TeamMember).where(
+                        TeamMember.team_id == team_id, TeamMember.user_id == user_id
+                    )
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
         if not tm:
             session.add(TeamMember(team_id=team_id, user_id=user_id))
             await session.flush()
@@ -207,10 +240,16 @@ async def seed():
         reviewer_id=None,
     ):
         plan = (
-            await session.execute(
-                select(Plan).where(Plan.user_id == user_id, Plan.week_start_date == week_start)
+            (
+                await session.execute(
+                    select(Plan).where(
+                        Plan.user_id == user_id, Plan.week_start_date == week_start
+                    )
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
 
         now = datetime.now(UTC)
         if not plan:
@@ -236,56 +275,79 @@ async def seed():
             plan.reviewed_by_user_id = reviewer_id
             plan.reviewed_at = now if reviewer_id else None
             from sqlalchemy import delete
+
             await session.execute(delete(Task).where(Task.plan_id == plan.id))
             await session.flush()
 
         # Insert tasks
         sort_order = 0
-        session.add(Task(
-            plan_id=plan.id,
-            category="main",
-            title=main_task[0],
-            why_it_matters=main_task[1],
-            is_completed=main_task[2],
-            sort_order=sort_order,
-        ))
+        session.add(
+            Task(
+                plan_id=plan.id,
+                category="main",
+                title=main_task[0],
+                why_it_matters=main_task[1],
+                is_completed=main_task[2],
+                sort_order=sort_order,
+            )
+        )
         sort_order += 1
 
         for title, comp in sub_goals:
-            session.add(Task(
-                plan_id=plan.id,
-                category="sub_goal",
-                title=title,
-                is_completed=comp,
-                sort_order=sort_order,
-            ))
+            session.add(
+                Task(
+                    plan_id=plan.id,
+                    category="sub_goal",
+                    title=title,
+                    is_completed=comp,
+                    sort_order=sort_order,
+                )
+            )
             sort_order += 1
 
         for title, comp in gtm_goals:
-            session.add(Task(
-                plan_id=plan.id,
-                category="gtm",
-                title=title,
-                is_completed=comp,
-                sort_order=sort_order,
-            ))
+            session.add(
+                Task(
+                    plan_id=plan.id,
+                    category="gtm",
+                    title=title,
+                    is_completed=comp,
+                    sort_order=sort_order,
+                )
+            )
             sort_order += 1
 
         await session.flush()
 
     # --- Create Users ---
-    _staff_user = await get_or_create_user("staff@weeks.sync", "Platform", "Staff", is_admin=True)
+    _staff_user = await get_or_create_user(
+        "staff@weeks.sync", "Platform", "Staff", is_admin=True
+    )
 
     # Acme Corp users
-    acme_owner = await get_or_create_user("owner@acme.com", "Alice", "Vance", is_admin=False)
-    acme_lead = await get_or_create_user("lead@acme.com", "Bob", "Stone", is_admin=False)
-    acme_member = await get_or_create_user("member@acme.com", "Charlie", "Day", is_admin=False)
-    acme_designer = await get_or_create_user("designer@acme.com", "Dana", "Scully", is_admin=False)
+    acme_owner = await get_or_create_user(
+        "owner@acme.com", "Alice", "Vance", is_admin=False
+    )
+    acme_lead = await get_or_create_user(
+        "lead@acme.com", "Bob", "Stone", is_admin=False
+    )
+    acme_member = await get_or_create_user(
+        "member@acme.com", "Charlie", "Day", is_admin=False
+    )
+    acme_designer = await get_or_create_user(
+        "designer@acme.com", "Dana", "Scully", is_admin=False
+    )
 
     # Globex users
-    globex_owner = await get_or_create_user("owner@globex.com", "Hank", "Scorpio", is_admin=False)
-    globex_lead = await get_or_create_user("lead@globex.com", "Homer", "Simpson", is_admin=False)
-    globex_member = await get_or_create_user("member@globex.com", "Carl", "Carlson", is_admin=False)
+    globex_owner = await get_or_create_user(
+        "owner@globex.com", "Hank", "Scorpio", is_admin=False
+    )
+    globex_lead = await get_or_create_user(
+        "lead@globex.com", "Homer", "Simpson", is_admin=False
+    )
+    globex_member = await get_or_create_user(
+        "member@globex.com", "Carl", "Carlson", is_admin=False
+    )
 
     # --- Create Organizations ---
     acme_org = await get_or_create_org("Acme Corp", "acme-corp", acme_owner.id)
@@ -293,17 +355,21 @@ async def seed():
     await ensure_membership(acme_org.id, acme_member.id, "member")
     await ensure_membership(acme_org.id, acme_designer.id, "member")
 
-    globex_org = await get_or_create_org("Globex Media", "globex-media", globex_owner.id)
+    globex_org = await get_or_create_org(
+        "Globex Media", "globex-media", globex_owner.id
+    )
     await ensure_membership(globex_org.id, globex_lead.id, "admin")
     await ensure_membership(globex_org.id, globex_member.id, "member")
 
     # --- Create Teams ---
     acme_eng = await get_or_create_team(acme_org.id, "Engineering", acme_lead.id)
+    await ensure_team_member(acme_eng.id, acme_owner.id)
     await ensure_team_member(acme_eng.id, acme_lead.id)
     await ensure_team_member(acme_eng.id, acme_member.id)
     await ensure_team_member(acme_eng.id, acme_designer.id)
 
     globex_dev = await get_or_create_team(globex_org.id, "Core Product", globex_lead.id)
+    await ensure_team_member(globex_dev.id, globex_owner.id)
     await ensure_team_member(globex_dev.id, globex_lead.id)
     await ensure_team_member(globex_dev.id, globex_member.id)
 
@@ -312,118 +378,650 @@ async def seed():
     this_monday = today - timedelta(days=today.weekday())
     last_monday = this_monday - timedelta(days=7)
     two_weeks_ago = this_monday - timedelta(days=14)
+    three_weeks_ago = this_monday - timedelta(days=21)
 
-    # --- Seed Plans for Acme Corp ---
+    # =========================================================================
+    # --- Seed Plans for Acme Corp (Past 3 Weeks + Current Week) ---
+    # =========================================================================
 
-    # 1. Two weeks ago: Charlie (Done & Shipped)
+    # -------------------------------------------------------------------------
+    # WEEK -3 (3 WEEKS AGO) - Acme Corp
+    # -------------------------------------------------------------------------
+
+    # 1. Charlie Day (Backend / Full-Stack) - Week -3: Done & Shipped
+    await seed_plan(
+        org_id=acme_org.id,
+        team_id=acme_eng.id,
+        user_id=acme_member.id,
+        week_start=three_weeks_ago,
+        status="done",
+        main_task=(
+            "Implement OAuth2 Google & GitHub authentication flow",
+            "Eliminate signup friction and drop-off during enterprise team onboarding",
+            True,
+        ),
+        sub_goals=[
+            ("Configure OAuth consent screens for Google & GitHub apps", True),
+            ("Build token exchange callback and JWT minting service", True),
+            (
+                "Add 'Continue with Google' and 'Continue with GitHub' buttons in auth UI",
+                True,
+            ),
+        ],
+        gtm_goals=[
+            ("Update authentication guide and changelog release notes", True),
+        ],
+        main_task_shipped=True,
+        reviewer_id=acme_lead.id,
+        review_comment="SSO flow works smoothly across desktop and mobile browsers.",
+    )
+
+    # 2. Dana Scully (Product / UX Designer) - Week -3: Done & Shipped
+    await seed_plan(
+        org_id=acme_org.id,
+        team_id=acme_eng.id,
+        user_id=acme_designer.id,
+        week_start=three_weeks_ago,
+        status="done",
+        main_task=(
+            "Design token architecture & Figma component library",
+            "Establish unified typography scale, spacing units, and high-contrast tokens",
+            True,
+        ),
+        sub_goals=[
+            ("Define Inter & Geist typography scale and vertical rhythm", True),
+            ("Create calibrated monochrome tokens for light and dark modes", True),
+            (
+                "Build reusable button, input, badge, and dialog components in Figma",
+                True,
+            ),
+        ],
+        gtm_goals=[
+            (
+                "Lead 30-minute design token review session with frontend engineers",
+                True,
+            ),
+        ],
+        main_task_shipped=True,
+        reviewer_id=acme_lead.id,
+        review_comment="Tokens mapped cleanly into CSS variables. Huge improvement to UI consistency.",
+    )
+
+    # 3. Bob Stone (Engineering Lead) - Week -3: Done & Shipped
+    await seed_plan(
+        org_id=acme_org.id,
+        team_id=acme_eng.id,
+        user_id=acme_lead.id,
+        week_start=three_weeks_ago,
+        status="done",
+        main_task=(
+            "Multi-tenant database schema isolation & anti-oracle audit",
+            "Prevent cross-organization data leaks and establish strict foreign key cascades",
+            True,
+        ),
+        sub_goals=[
+            ("Audit all Alembic migrations for anti-oracle index coverage", True),
+            (
+                "Add organization tenancy validation dependencies to all API routes",
+                True,
+            ),
+            ("Stress test connection pooler with 100 concurrent tenant sessions", True),
+        ],
+        gtm_goals=[
+            ("Document tenancy isolation model in architecture handbook", True),
+        ],
+        main_task_shipped=True,
+        review_comment="Tenancy isolation verified with automated anti-oracle tests.",
+    )
+
+    # 4. Alice Vance (Org Owner / Founder) - Week -3: Done & Shipped
+    await seed_plan(
+        org_id=acme_org.id,
+        team_id=acme_eng.id,
+        user_id=acme_owner.id,
+        week_start=three_weeks_ago,
+        status="done",
+        main_task=(
+            "Close 5 enterprise lighthouse pilot customer agreements",
+            "Validate product-market fit and secure commitments for paid Q4 rollouts",
+            True,
+        ),
+        sub_goals=[
+            ("Conduct deep-dive onboarding interviews with 8 engineering leads", True),
+            ("Finalize Master Services Agreement (MSA) legal contract template", True),
+            ("Collect signed pilot agreements from all 5 enterprise targets", True),
+        ],
+        gtm_goals=[
+            ("Publish customer logo announcements on company LinkedIn", True),
+        ],
+        main_task_shipped=True,
+        reviewer_id=acme_lead.id,
+        review_comment="Milestone achieved. All 5 enterprise pilots are officially signed.",
+    )
+
+    # -------------------------------------------------------------------------
+    # WEEK -2 (2 WEEKS AGO) - Acme Corp
+    # -------------------------------------------------------------------------
+
+    # 5. Charlie Day - Week -2: Done, but Missed shipping goal (Expired card edge cases)
     await seed_plan(
         org_id=acme_org.id,
         team_id=acme_eng.id,
         user_id=acme_member.id,
         week_start=two_weeks_ago,
         status="done",
-        main_task=("Implement OAuth2 Google sign-in", "Eliminate signup friction for enterprise trials", True),
+        main_task=(
+            "Stripe subscription checkout & customer billing portal",
+            "Enable self-serve trial upgrades to paid tier before end-of-month renewals",
+            False,
+        ),
         sub_goals=[
-            ("Configure Google Cloud OAuth consent screen", True),
-            ("Build backend token validation endpoint", True),
-            ("Add 'Continue with Google' button in auth UI", True),
+            (
+                "Create Stripe webhook handler for invoice payments and card declines",
+                True,
+            ),
+            ("Handle customer portal redirect sessions in organization settings", True),
+            (
+                "Write end-to-end checkout webhook integration tests for expired cards",
+                False,
+            ),
         ],
         gtm_goals=[
-            ("Announce OAuth login availability in changelog", True),
+            ("Prepare billing FAQ and refund policy for support team", True),
+        ],
+        main_task_shipped=False,
+        reviewer_id=acme_lead.id,
+        review_comment="Checkout works on staging, but held back production rollout until expired card edge cases are tested.",
+    )
+
+    # 6. Dana Scully - Week -2: Done & Shipped
+    await seed_plan(
+        org_id=acme_org.id,
+        team_id=acme_eng.id,
+        user_id=acme_designer.id,
+        week_start=two_weeks_ago,
+        status="done",
+        main_task=(
+            "Mobile-responsive layout audit and compact screen adaptations",
+            "Prevent sidebar and weekly planning cards from breaking on compact laptop screens",
+            True,
+        ),
+        sub_goals=[
+            ("Fix viewport overflow and spacing below 1024px breakpoints", True),
+            ("Design responsive mobile slide-out navigation drawer", True),
+            ("Optimize weekly plan studio layout for 13-inch displays", True),
+        ],
+        gtm_goals=[
+            ("Share responsive prototype video walkthrough in #design-critique", True),
         ],
         main_task_shipped=True,
         reviewer_id=acme_lead.id,
+        review_comment="Compact layout feels spacious and clean on smaller screens.",
     )
 
-    # 2. Last week: Charlie (Done, but Missed shipping goal)
+    # 7. Bob Stone - Week -2: Done & Shipped
+    await seed_plan(
+        org_id=acme_org.id,
+        team_id=acme_eng.id,
+        user_id=acme_lead.id,
+        week_start=two_weeks_ago,
+        status="done",
+        main_task=(
+            "Automated CI pipeline and test suite parallelization",
+            "Cut PR verification time from 8 minutes down to under 45 seconds",
+            True,
+        ),
+        sub_goals=[
+            ("Configure uv dependency caching in GitHub Actions workflow", True),
+            ("Set up pytest-xdist for multi-worker test execution", True),
+            ("Add oxlint and TypeScript type-check automated gates", True),
+        ],
+        gtm_goals=[
+            ("Share CI turnaround benchmarks with engineering team", True),
+        ],
+        main_task_shipped=True,
+        review_comment="Pipeline execution time dropped to 38 seconds. Massive productivity boost.",
+    )
+
+    # 8. Alice Vance - Week -2: Done & Shipped
+    await seed_plan(
+        org_id=acme_org.id,
+        team_id=acme_eng.id,
+        user_id=acme_owner.id,
+        week_start=two_weeks_ago,
+        status="done",
+        main_task=(
+            "Weekly product cadence playbook and customer advisory council",
+            "Establish bi-weekly customer feedback loop to guide roadmap prioritization",
+            True,
+        ),
+        sub_goals=[
+            ("Draft 'The 5-Minute Weekly Rhythm' guide for managers", True),
+            ("Recruit 6 engineering design partners for advisory council", True),
+            ("Host inaugural advisory session on AI coaching workflows", True),
+        ],
+        gtm_goals=[
+            ("Distribute executive session takeaways to all pilot accounts", True),
+        ],
+        main_task_shipped=True,
+        reviewer_id=acme_lead.id,
+        review_comment="Customer feedback on the Friday shipping ritual was overwhelmingly positive.",
+    )
+
+    # -------------------------------------------------------------------------
+    # WEEK -1 (LAST WEEK) - Acme Corp
+    # -------------------------------------------------------------------------
+
+    # 9. Charlie Day - Week -1: Done & Shipped
     await seed_plan(
         org_id=acme_org.id,
         team_id=acme_eng.id,
         user_id=acme_member.id,
         week_start=last_monday,
         status="done",
-        main_task=("Stripe subscription checkout & portal integration", "Required to transition free pilot customers to paying tier", False),
+        main_task=(
+            "Real-time team week aggregation and export service",
+            "Let engineering leads review full team commitments in one glance and export to CSV",
+            True,
+        ),
         sub_goals=[
-            ("Create Stripe webhook handler for invoice payments", True),
-            ("Handle customer portal redirect sessions", True),
-            ("Write end-to-end checkout webhook integration tests", False),
+            ("Build multi-member rollup query with plan eager-loading", True),
+            ("Add CSV export endpoint for executive weekly standup reports", True),
+            ("Add optimistic UI updates when ticking task checkboxes", True),
         ],
         gtm_goals=[
-            ("Prepare billing FAQ guide for support team", True),
+            ("Demo the rollup view to pilot team leads in bi-weekly sync", True),
         ],
-        main_task_shipped=False,
+        main_task_shipped=True,
         reviewer_id=acme_lead.id,
+        review_comment="Rollup queries are super snappy (<40ms). Great work on the eager loading.",
     )
 
-    # 3. This week: Charlie (Approved, in progress)
+    # 10. Dana Scully - Week -1: Done & Shipped
+    await seed_plan(
+        org_id=acme_org.id,
+        team_id=acme_eng.id,
+        user_id=acme_designer.id,
+        week_start=last_monday,
+        status="done",
+        main_task=(
+            "End-of-week outcome review modal and celebration animations",
+            "Encourage Friday reflection and motivate team members when marking goals as shipped",
+            True,
+        ),
+        sub_goals=[
+            ("Design shipped/missed badge iconography and micro-animations", True),
+            ("Design AI retrospective summary dialog layout", True),
+            (
+                "Design Friday celebration confetti effects for shipped deliverables",
+                True,
+            ),
+        ],
+        gtm_goals=[
+            ("Share retrospective UI designs in #product-announcements", True),
+        ],
+        main_task_shipped=True,
+        reviewer_id=acme_lead.id,
+        review_comment="The Friday outcome modal looks fantastic and clean.",
+    )
+
+    # 11. Bob Stone - Week -1: Done, but Missed (Staging environment outage)
+    await seed_plan(
+        org_id=acme_org.id,
+        team_id=acme_eng.id,
+        user_id=acme_lead.id,
+        week_start=last_monday,
+        status="done",
+        main_task=(
+            "API rate limiting and security headers hardening",
+            "Protect public endpoints from abuse and pass SOC2 Type I network inspection",
+            False,
+        ),
+        sub_goals=[
+            ("Implement token-bucket rate limiter for auth routes", True),
+            ("Add Strict-Transport-Security, CSP, and X-Content-Type headers", True),
+            ("Simulate distributed DDoS penetration test on staging gateway", False),
+        ],
+        gtm_goals=[
+            ("Submit updated network architecture diagram to security auditor", True),
+        ],
+        main_task_shipped=False,
+        review_comment="Security headers deployed; penetration testing moved to next sprint due to staging maintenance.",
+    )
+
+    # 12. Alice Vance - Week -1: Done & Shipped
+    await seed_plan(
+        org_id=acme_org.id,
+        team_id=acme_eng.id,
+        user_id=acme_owner.id,
+        week_start=last_monday,
+        status="done",
+        main_task=(
+            "Enterprise security review package and sales enablement kit",
+            "Eliminate sales cycle bottlenecks by having security documentation pre-approved",
+            True,
+        ),
+        sub_goals=[
+            ("Assemble SOC2 compliance readiness packet with network diagrams", True),
+            ("Create standard Data Processing Addendum (DPA) and privacy guide", True),
+            ("Conduct security briefing call with enterprise procurement team", True),
+        ],
+        gtm_goals=[
+            ("Publish Trust & Security page on public marketing website", True),
+        ],
+        main_task_shipped=True,
+        reviewer_id=acme_lead.id,
+        review_comment="Security packet cleared enterprise vendor assessment with zero redlines.",
+    )
+
+    # -------------------------------------------------------------------------
+    # CURRENT WEEK (THIS WEEK) - Acme Corp
+    # -------------------------------------------------------------------------
+
+    # 13. Charlie Day - Current Week: Approved (In Progress)
     await seed_plan(
         org_id=acme_org.id,
         team_id=acme_eng.id,
         user_id=acme_member.id,
         week_start=this_monday,
         status="approved",
-        main_task=("Weekly Planning review dashboard for managers", "Enables engineering leads to approve team commitments in under 5 minutes", False),
+        main_task=(
+            "AI-powered Weekly Plan critique and coaching integration",
+            "Help team members write clear, measurable outcomes instead of vague activity logs",
+            False,
+        ),
         sub_goals=[
-            ("Build team overview grid component", True),
-            ("Add quick approve and comment dialog", False),
-            ("Add filter for historical planning weeks", False),
+            ("Connect Pydantic AI agent with Gemini 2.5 Flash", True),
+            ("Render findings panel with category badges & rewrite suggestions", False),
+            ("Add inline 1-click apply suggestion button to input fields", False),
         ],
         gtm_goals=[
-            ("Record 2-minute product walkthrough video for beta leads", False),
+            ("Record a 90-second product clip highlighting AI coaching", False),
         ],
         reviewer_id=acme_lead.id,
+        review_comment="Excited about this! Make sure timeouts gracefully fallback without blocking.",
     )
 
-    # 4. This week: Dana (Submitted, awaiting review)
+    # 14. Dana Scully - Current Week: Submitted (Awaiting Review)
     await seed_plan(
         org_id=acme_org.id,
         team_id=acme_eng.id,
         user_id=acme_designer.id,
         week_start=this_monday,
         status="submitted",
-        main_task=("Redesign navigation sidebar and dark mode palette", "Modernize aesthetic and improve readability on compact screens", False),
+        main_task=(
+            "Dark mode high-contrast refinement and accessibility audit",
+            "Ensure all badges, borders, and muted text meet WCAG AAA 7:1 contrast ratios",
+            False,
+        ),
         sub_goals=[
-            ("Audit typography scale and contrast ratios", True),
-            ("Implement collapsible sidebar state persistence", False),
+            ("Run axe-core automated accessibility audit across all routes", True),
+            ("Adjust secondary foreground text opacity for darker backgrounds", False),
+            (
+                "Refine focus rings on keyboard navigation for interactive elements",
+                False,
+            ),
         ],
         gtm_goals=[
-            ("Publish design token documentation on Notion", False),
+            (
+                "Draft accessibility compliance scorecard for sales security questionnaires",
+                False,
+            ),
         ],
     )
 
-    # 5. This week: Bob (Lead's own plan, draft)
+    # 15. Bob Stone - Current Week: Draft (Lead's own plan)
     await seed_plan(
         org_id=acme_org.id,
         team_id=acme_eng.id,
         user_id=acme_lead.id,
         week_start=this_monday,
         status="draft",
-        main_task=("Q4 Infrastructure Capacity Planning & Cost Audit", "Ensure database and worker pools handle 10x traffic spike comfortably", False),
+        main_task=(
+            "Q4 Infrastructure Capacity Planning & Database Optimization",
+            "Ensure database and worker pools handle 10x traffic spike comfortably",
+            False,
+        ),
         sub_goals=[
-            ("Profile slow queries on weekly plans rollup", False),
-            ("Set up connection pooling alerts in Grafana", False),
+            ("Profile slow queries on weekly plans rollup endpoints", False),
+            ("Configure connection pooling latency alerts in Grafana", False),
+            ("Benchmark read-replica failover under simulated traffic surge", False),
         ],
         gtm_goals=[
-            ("Share infra budget summary with finance", False),
+            ("Share infrastructure budget forecast with executive committee", False),
         ],
     )
 
-    # --- Seed Plans for Globex Media ---
+    # 16. Alice Vance - Current Week: Approved (In Progress)
+    await seed_plan(
+        org_id=acme_org.id,
+        team_id=acme_eng.id,
+        user_id=acme_owner.id,
+        week_start=this_monday,
+        status="approved",
+        main_task=(
+            "Q4 Enterprise Pricing Strategy & Self-Serve Conversion Funnel",
+            "Transition pilot accounts to annual contracts and optimize self-serve signups",
+            False,
+        ),
+        sub_goals=[
+            ("Analyze willingness-to-pay survey data from pilot teams", True),
+            ("Finalize team vs enterprise per-seat monthly tier structure", False),
+            ("Set up quarterly sales pipeline dashboard in CRM", False),
+        ],
+        gtm_goals=[
+            ("Send Q4 renewal terms to pilot accounts with early-bird discount", False),
+        ],
+        reviewer_id=acme_lead.id,
+        review_comment="Tier structure looks sound. Pricing curve matches our buyer personas well.",
+    )
+
+    # =========================================================================
+    # --- Seed Plans for Globex Media (Past 3 Weeks + Current Week) ---
+    # =========================================================================
+
+    # Week -3: Carl Carlson - Done & Shipped
+    await seed_plan(
+        org_id=globex_org.id,
+        team_id=globex_dev.id,
+        user_id=globex_member.id,
+        week_start=three_weeks_ago,
+        status="done",
+        main_task=(
+            "Media asset transcoder microservice and CDN caching",
+            "Cut video upload processing time by 60% for high-resolution broadcast assets",
+            True,
+        ),
+        sub_goals=[
+            ("Deploy ffmpeg worker pool with async queue consumption", True),
+            ("Configure Cloudflare edge caching for HLS video segments", True),
+            ("Benchmark 4K video transcoding speed and memory footprint", True),
+        ],
+        gtm_goals=[
+            ("Publish technical deep-dive on engineering blog", True),
+        ],
+        main_task_shipped=True,
+        reviewer_id=globex_lead.id,
+        review_comment="Transcode throughput is 3x faster than our previous pipeline.",
+    )
+
+    # Week -3: Homer Simpson - Done & Shipped
+    await seed_plan(
+        org_id=globex_org.id,
+        team_id=globex_dev.id,
+        user_id=globex_lead.id,
+        week_start=three_weeks_ago,
+        status="done",
+        main_task=(
+            "Live broadcast stream health monitoring & alert triggers",
+            "Detect frame drops and audio desync within 2 seconds of occurrence",
+            True,
+        ),
+        sub_goals=[
+            ("Deploy Prometheus metrics exporter for media ingest nodes", True),
+            ("Configure PagerDuty webhooks for bitrate degradation", True),
+            ("Test automated stream rerouting during packet loss simulation", True),
+        ],
+        gtm_goals=[
+            ("Present monitoring dashboard to operations shift supervisors", True),
+        ],
+        main_task_shipped=True,
+        review_comment="Alerts triggered accurately during the weekend stress test.",
+    )
+
+    # Week -2: Carl Carlson - Done, Missed (Safari Audio Drift bug)
+    await seed_plan(
+        org_id=globex_org.id,
+        team_id=globex_dev.id,
+        user_id=globex_member.id,
+        week_start=two_weeks_ago,
+        status="done",
+        main_task=(
+            "Real-time audio waveform visualizer and chapter marker editor",
+            "Enable podcast editors to slice audiograms and place chapter markers accurately",
+            False,
+        ),
+        sub_goals=[
+            ("Implement Web Audio API canvas waveform rendering", True),
+            ("Add draggable chapter markers with timecode snapping", True),
+            ("Fix audio synchronization drift on Safari mobile browser", False),
+        ],
+        gtm_goals=[
+            (
+                "Share chapter editing tutorial video with podcast production team",
+                False,
+            ),
+        ],
+        main_task_shipped=False,
+        reviewer_id=globex_lead.id,
+        review_comment="Safari drift bug blocked release. Pushing fix to next week.",
+    )
+
+    # Week -2: Homer Simpson - Done & Shipped
+    await seed_plan(
+        org_id=globex_org.id,
+        team_id=globex_dev.id,
+        user_id=globex_lead.id,
+        week_start=two_weeks_ago,
+        status="done",
+        main_task=(
+            "Automated media transcoding worker autoscaling",
+            "Dynamically spin up transcode workers during prime-time broadcast hours",
+            True,
+        ),
+        sub_goals=[
+            ("Configure AWS KEDA autoscaling based on SQS queue depth", True),
+            ("Optimize worker docker image cold-start latency to <5 seconds", True),
+            ("Validate scale-down behavior during idle evening hours", True),
+        ],
+        gtm_goals=[
+            ("Report monthly cloud compute savings to finance director", True),
+        ],
+        main_task_shipped=True,
+        review_comment="Worker autoscaling dropped idle cloud compute costs by 28%.",
+    )
+
+    # Week -1: Carl Carlson - Done & Shipped
+    await seed_plan(
+        org_id=globex_org.id,
+        team_id=globex_dev.id,
+        user_id=globex_member.id,
+        week_start=last_monday,
+        status="done",
+        main_task=(
+            "Cross-browser Web Audio synchronization and chapter export",
+            "Resolve Safari sync drift and allow direct MP3 chapter metadata exports",
+            True,
+        ),
+        sub_goals=[
+            (
+                "Replace standard audio element clock with AudioContext hardware timer",
+                True,
+            ),
+            ("Add ID3v2 chapter tag generator library", True),
+            ("Verify zero timecode drift across Chrome, Firefox, and Safari", True),
+        ],
+        gtm_goals=[
+            ("Release podcast chapter feature to all content creators", True),
+        ],
+        main_task_shipped=True,
+        reviewer_id=globex_lead.id,
+        review_comment="Sync is rock solid now. Safari tests passed cleanly.",
+    )
+
+    # Week -1: Homer Simpson - Done & Shipped
+    await seed_plan(
+        org_id=globex_org.id,
+        team_id=globex_dev.id,
+        user_id=globex_lead.id,
+        week_start=last_monday,
+        status="done",
+        main_task=(
+            "High-availability Redis cluster migration for session caching",
+            "Eliminate single point of failure in content publishing queues",
+            True,
+        ),
+        sub_goals=[
+            ("Provision 3-node Redis sentinel cluster on AWS ElastiCache", True),
+            ("Configure automated failover health checks and alerting", True),
+            (
+                "Migrate live session keys with zero downtime during off-peak window",
+                True,
+            ),
+        ],
+        gtm_goals=[
+            ("Update disaster recovery runbook for DevOps rotation", True),
+        ],
+        main_task_shipped=True,
+        review_comment="Zero dropped connections during cutover.",
+    )
+
+    # Current Week: Carl Carlson - Approved (In Progress)
     await seed_plan(
         org_id=globex_org.id,
         team_id=globex_dev.id,
         user_id=globex_member.id,
         week_start=this_monday,
         status="approved",
-        main_task=("Editorial scheduling calendar widget", "Allow editors to preview publishing queues across channels", False),
+        main_task=(
+            "Editorial scheduling calendar widget and automated social syndication",
+            "Allow editors to preview publishing queues and auto-post to social channels",
+            False,
+        ),
         sub_goals=[
-            ("Integrate drag and drop calendar library", True),
-            ("Connect queue API to real-time websocket", False),
+            ("Integrate interactive drag-and-drop calendar matrix", True),
+            ("Connect queue API to real-time publishing scheduler", False),
+            (
+                "Implement OAuth connection for Twitter/X and LinkedIn syndication",
+                False,
+            ),
         ],
         gtm_goals=[
-            ("Write briefing note for editorial board", False),
+            ("Conduct 30-minute training session with editorial desk staff", False),
         ],
         reviewer_id=globex_lead.id,
+        review_comment="Great progress on the calendar matrix. Keep social syndication scoped to v1.",
+    )
+
+    # Current Week: Homer Simpson - Draft
+    await seed_plan(
+        org_id=globex_org.id,
+        team_id=globex_dev.id,
+        user_id=globex_lead.id,
+        week_start=this_monday,
+        status="draft",
+        main_task=(
+            "Automated content backup and cross-region disaster recovery replication",
+            "Ensure all published media archives survive catastrophic regional datacenter outages",
+            False,
+        ),
+        sub_goals=[
+            ("Set up S3 cross-region bucket replication with KMS encryption", False),
+            ("Automate daily snapshot verification test via Lambda", False),
+        ],
+        gtm_goals=[
+            ("Present quarterly business continuity report to risk committee", False),
+        ],
     )
 
     await session.commit()
@@ -431,19 +1029,26 @@ async def seed():
     print("\n" + "=" * 62)
     print("           WeekSync Database Seed Complete!           ")
     print("=" * 62)
+    print("\nSeeded 4 weeks of plans across Acme Corp & Globex Media:")
+    print(f"  • Week -3:  {three_weeks_ago.isoformat()} (Shipped milestones)")
+    print(f"  • Week -2:  {two_weeks_ago.isoformat()} (Shipped & Missed retros)")
+    print(f"  • Week -1:  {last_monday.isoformat()} (Recent completions)")
+    print(f"  • Current:  {this_monday.isoformat()} (Approved, Submitted & Draft)")
     print("\nDemo Accounts (Password for all: Password123!):")
-    print("\n  [Platform Internal Staff] (/internal on port 3001)")
+    print("\n  [Platform Internal Staff] (Port 3002: http://localhost:3002)")
     print("    Email:     staff@weeks.sync")
     print("    Role:      Internal Admin")
-    print("\n  [Acme Corp - Primary Customer Tenant] (/ on port 3000)")
-    print("    Org Owner: owner@acme.com")
-    print("    Team Lead: lead@acme.com")
-    print("    Member 1:  member@acme.com (has active & past plans)")
-    print("    Member 2:  designer@acme.com (submitted plan awaiting review)")
+    print(
+        "\n  [Acme Corp - Primary Customer Tenant] (Port 3001: http://localhost:3001)"
+    )
+    print("    Org Owner: owner@acme.com  (Alice Vance - 4 weeks of plans)")
+    print("    Team Lead: lead@acme.com   (Bob Stone - 4 weeks of plans)")
+    print("    Member 1:  member@acme.com (Charlie Day - 4 weeks of plans)")
+    print("    Designer:  designer@acme.com (Dana Scully - 4 weeks of plans)")
     print("\n  [Globex Media - Secondary Tenant for Tenancy Testing]")
-    print("    Org Owner: owner@globex.com")
-    print("    Team Lead: lead@globex.com")
-    print("    Member:    member@globex.com")
+    print("    Org Owner: owner@globex.com (Hank Scorpio)")
+    print("    Team Lead: lead@globex.com  (Homer Simpson - 4 weeks of plans)")
+    print("    Member:    member@globex.com (Carl Carlson - 4 weeks of plans)")
     print("=" * 62 + "\n")
 
 
@@ -466,4 +1071,3 @@ def export_openapi():
 
     print(f"Exported app OpenAPI spec to: {app_target}")
     print(f"Exported internal OpenAPI spec to: {internal_target}")
-

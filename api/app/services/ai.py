@@ -51,7 +51,6 @@ Given a weekly plan with task completion status, produce:
 Be specific, not generic. Reference actual task titles."""
 
 
-
 TEST_OVERRIDE_MODEL: PydanticAIModel | str | None = None
 
 
@@ -93,6 +92,12 @@ def get_agent(
         model_name = settings.AI_MODEL
         if ":" in model_name:
             model_name = model_name.split(":", 1)[1]
+
+        # Google Gemini API catalog does not yet include a 3.5 model.
+        # When gemini-3.5-flash-lite is requested, resolve directly to the active
+        # gemini-2.5-flash model so requests run immediately without wasting roundtrips on a 404.
+        if "3.5" in model_name or "3-5" in model_name:
+            model_name = "gemini-2.5-flash"
 
         provider = GoogleProvider(api_key=settings.GOOGLE_API_KEY)
         model = GoogleModel(model_name, provider=provider)
@@ -198,22 +203,14 @@ async def review_plan(
     )
 
     try:
-        async with asyncio.timeout(15.0):
+        async with asyncio.timeout(30.0):
             try:
                 result = await agent.run(prompt)
             except Exception as run_err:
                 err_str = str(run_err)
-                is_not_found = (
-                    "not found" in err_str.lower() or "404" in err_str
-                )
-                if (
-                    is_not_found
-                    and not override_model
-                    and settings.GOOGLE_API_KEY
-                ):
-                    logger.info(
-                        "Model not found in Gemini API, retrying with fallback"
-                    )
+                is_not_found = "not found" in err_str.lower() or "404" in err_str
+                if is_not_found and not override_model and settings.GOOGLE_API_KEY:
+                    logger.info("Model not found in Gemini API, retrying with fallback")
                     from pydantic_ai.models.google import GoogleModel
                     from pydantic_ai.providers.google import GoogleProvider
 
@@ -277,7 +274,7 @@ async def review_plan(
             feature=feature,
             status="timeout",
             latency_ms=latency_ms,
-            error_message="Plan review timed out after 15 seconds",
+            error_message="Plan review timed out after 30 seconds",
         )
         raise APIException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
@@ -355,22 +352,14 @@ async def draft_plan_from_brain_dump(
     )
 
     try:
-        async with asyncio.timeout(15.0):
+        async with asyncio.timeout(30.0):
             try:
                 result = await agent.run(prompt)
             except Exception as run_err:
                 err_str = str(run_err)
-                is_not_found = (
-                    "not found" in err_str.lower() or "404" in err_str
-                )
-                if (
-                    is_not_found
-                    and not override_model
-                    and settings.GOOGLE_API_KEY
-                ):
-                    logger.info(
-                        "Model not found in Gemini API, retrying with fallback"
-                    )
+                is_not_found = "not found" in err_str.lower() or "404" in err_str
+                if is_not_found and not override_model and settings.GOOGLE_API_KEY:
+                    logger.info("Model not found in Gemini API, retrying with fallback")
                     from pydantic_ai.models.google import GoogleModel
                     from pydantic_ai.providers.google import GoogleProvider
 
@@ -423,7 +412,7 @@ async def draft_plan_from_brain_dump(
             feature=feature,
             status="timeout",
             latency_ms=latency_ms,
-            error_message="Brain dump drafting timed out after 15 seconds",
+            error_message="Brain dump drafting timed out after 30 seconds",
         )
         raise APIException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
@@ -535,22 +524,14 @@ async def generate_week_summary(
     )
 
     try:
-        async with asyncio.timeout(15.0):
+        async with asyncio.timeout(30.0):
             try:
                 result = await agent.run(prompt)
             except Exception as run_err:
                 err_str = str(run_err)
-                is_not_found = (
-                    "not found" in err_str.lower() or "404" in err_str
-                )
-                if (
-                    is_not_found
-                    and not override_model
-                    and settings.GOOGLE_API_KEY
-                ):
-                    logger.info(
-                        "Model not found in Gemini API, retrying with fallback"
-                    )
+                is_not_found = "not found" in err_str.lower() or "404" in err_str
+                if is_not_found and not override_model and settings.GOOGLE_API_KEY:
+                    logger.info("Model not found in Gemini API, retrying with fallback")
                     from pydantic_ai.models.google import GoogleModel
                     from pydantic_ai.providers.google import GoogleProvider
 
@@ -603,7 +584,7 @@ async def generate_week_summary(
             feature=feature,
             status="timeout",
             latency_ms=latency_ms,
-            error_message="Week summary generation timed out after 15 seconds",
+            error_message="Week summary generation timed out after 30 seconds",
         )
         raise APIException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
@@ -660,4 +641,3 @@ async def generate_week_summary(
             code="AI_SERVICE_ERROR",
             message="AI assistant is currently unavailable. Planning works normally without it.",
         )
-

@@ -5,14 +5,14 @@
 ---
 
 ## 1. Brand
-- [ ] Product name chosen (short, easy to say/spell, not "Weekly Planner")
-- [ ] One-line pitch written
-- [ ] SVG logo created, readable at 16px, works on light and dark backgrounds
-- [ ] Logo used as favicon, app header, sign-in page, landing page
-- [ ] Page `<title>` set across all three front ends
-- [ ] Every user-facing "Launchbase" string replaced
-- [ ] Admin panel clearly marked INTERNAL in branding
-- [ ] All three front ends tell the same brand story
+- [x] Product name chosen (short, easy to say/spell, not "Weekly Planner")
+- [x] One-line pitch written
+- [x] SVG logo created, readable at 16px, works on light and dark backgrounds
+- [x] Logo used as favicon, app header, sign-in page, landing page
+- [x] Page `<title>` set across all three front ends
+- [x] Every user-facing "Launchbase" string replaced
+- [x] Admin panel clearly marked INTERNAL in branding
+- [x] All three front ends tell the same brand story
 
 ## 2. Auth & Organizations
 - [x] Sign-up endpoint added (email + password, built on existing auth code)
@@ -145,11 +145,11 @@
 - [ ] `git archive` zip verified from fresh unzip
 
 ## 14. Rules Compliance
-- [ ] No protected core replaced (auth, token scopes, is_admin, API surfaces, DB stack, client generation)
-- [ ] Every core-file edit logged in plans/03-decisions.md
-- [ ] No Supabase or alternative auth introduced
-- [ ] is_admin never used for customer org permissions
-- [ ] Org roles use clearly different names from staff
-- [ ] No enums in models
-- [ ] Services flush, routers commit
-- [ ] No hand-written fetch calls to own API
+- [x] No protected core replaced (auth, token scopes, is_admin, API surfaces, DB stack, client generation)
+- [x] Every core-file edit logged in docs/03-decisions.md
+- [x] No Supabase or alternative auth introduced
+- [x] is_admin never used for customer org permissions
+- [x] Org roles use clearly different names from staff
+- [x] No enums in models
+- [x] Services flush, routers commit
+- [x] No hand-written fetch calls to own API

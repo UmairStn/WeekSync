@@ -11,15 +11,15 @@ Read these files in order:
 1. RULES.md
 2. AGENTS.md (this file)
 3. plans/00-master-plan.md
-4. plans/01-requirements-checklist.md
-5. plans/02-data-model-and-tenancy.md
-6. plans/03-decisions.md
-7. plans/04-ai-design.md
-8. plans/06-cut-list.md
+4. docs/01-requirements-checklist.md
+5. docs/02-data-model-and-tenancy.md
+6. docs/03-decisions.md
+7. docs/04-ai-design.md
+8. docs/06-cut-list.md
 9. The latest entry of logs/SESSION_LOG.md
 
 ### During work
-- Tick checklist items in plans/01-requirements-checklist.md only when truly done and verified, never on "written but untested".
+- Tick checklist items in docs/01-requirements-checklist.md only when truly done and verified, never on "written but untested".
 - Track operational progress and handoffs directly in logs/SESSION_LOG.md.
 
 ### On session end (or when I say stop)
@@ -35,10 +35,10 @@ Append an entry to logs/SESSION_LOG.md with:
 - Commands to verify
 
 ### Decision logging
-- Log every non-obvious decision in plans/03-decisions.md (decision, options, why, date).
+- Log every non-obvious decision in docs/03-decisions.md (decision, options, why, date).
 
 ### Lessons learned
-- Session logs belong in `logs/SESSION_LOG.md`, keeping `plans/` focused strictly on architecture and specifications.
+- Session logs belong in `logs/SESSION_LOG.md`, keeping `plans/` and `docs/` focused strictly on roadmap and architecture specifications.
 - DO NOT automatically run git commit. The human lead reviews and controls commits; agents track all work in the `logs/` folder and wait for explicit commit instructions.
 - DO NOT run tests or validation commands in the terminal. The human lead will verify, test, and validate manually.
 

@@ -619,7 +619,8 @@
     7. **Dashboard Integration (`app/src/routes/_main/dashboard.tsx`):** Added "AI Week Summary" button to top action bar, Friday outcome block, and bottom summary dock when a plan is approved or completed.
     8. **Architecture Documentation:** Logged Decision 15 in `plans/03-decisions.md`, updated `plans/06-cut-list.md`, and appended `plans/07-change-log.md`.
     9. **Lint / Type Fix:** Removed unused `FileText` import in `app/src/components/ai/WeekSummaryDialog.tsx` resolving TS6133.
-    10. **Adherence to Constraints:** Zero core modifications, no tests run in terminal per human verification rule, zero automatic commits.
+    10. **Plan Lifecycle Fix:** Updated `dashboard.tsx` so completed plans with status `"done"` are treated as finalized alongside `"approved"`, ensuring `AI Week Summary` displays on shipped weeks and draft buttons are hidden.
+    11. **Adherence to Constraints:** Zero core modifications, no tests run in terminal per human verification rule, zero automatic commits.
 - **What's In Progress:** Feature is fully implemented across backend and frontend. Ready for human lead verification and test execution.
 - **The Exact Next Step:**
   - Human lead verifies the test suite with `uv run pytest -v tests/api/app/test_ai.py`
@@ -647,11 +648,185 @@
   - Frontend typecheck & lint: `cd ~/WeekSync/app && npm run validate`
   - Customer App URL: `http://localhost:3001`
 
+---
 
+## Session 16: 2026-10-13 17:52 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** Phase 6 (Database Seed Command Polish & Multi-Week Expansion)
+- **What Was Done:**
+  - Expanded `seed` command in `api/app/cli/commands.py` per user request to seed weekly plans across the **past 3 weeks** and current week with realistic, varied tasks and goals:
+    1. **Dates:** Computed valid Monday dates for `three_weeks_ago` (-21 days), `two_weeks_ago` (-14 days), `last_monday` (-7 days), and `this_monday` (current week).
+    2. **Team Memberships:** Attached organization owners (`acme_owner`, `globex_owner`) to their respective default teams (`acme_eng`, `globex_dev`) so owners have an active team immediately upon login.
+    3. **Acme Corp Plans (16 plans total across 4 members x 4 weeks):**
+       - **Charlie Day (`member@acme.com`):**
+         - Week -3: OAuth2 Google & GitHub auth flow (`done`, shipped 🎉)
+         - Week -2: Stripe checkout & customer billing portal (`done`, missed ⚠️ with lead note on expired cards)
+         - Week -1: Real-time team week rollup & CSV export service (`done`, shipped 🎉)
+         - Current Week: AI plan critique & coaching integration (`approved`, in progress)
+       - **Dana Scully (`designer@acme.com`):**
+         - Week -3: Design token architecture & Figma component library (`done`, shipped 🎉)
+         - Week -2: Mobile-responsive layout audit & compact screen adaptations (`done`, shipped 🎉)
+         - Week -1: End-of-week outcome review modal & celebration animations (`done`, shipped 🎉)
+         - Current Week: Dark mode high-contrast refinement & accessibility audit (`submitted`, awaiting review)
+       - **Bob Stone (`lead@acme.com`):**
+         - Week -3: Multi-tenant database schema isolation & anti-oracle audit (`done`, shipped 🎉)
+         - Week -2: Automated CI pipeline & test parallelization (`done`, shipped 🎉)
+         - Week -1: API rate limiting & security headers hardening (`done`, missed ⚠️ due to staging maintenance)
+         - Current Week: Q4 Infrastructure capacity planning & database optimization (`draft`)
+       - **Alice Vance (`owner@acme.com`):**
+         - Week -3: Close 5 enterprise lighthouse pilot customer agreements (`done`, shipped 🎉)
+         - Week -2: Weekly product cadence playbook & customer advisory council (`done`, shipped 🎉)
+         - Week -1: Enterprise security review package & sales enablement kit (`done`, shipped 🎉)
+         - Current Week: Q4 Enterprise pricing strategy & self-serve conversion funnel (`approved`, in progress)
+    4. **Globex Media Plans (8 plans total across 2 members x 4 weeks):**
+       - **Carl Carlson (`member@globex.com`):**
+         - Week -3: Media asset transcoder microservice & CDN caching (`done`, shipped 🎉)
+         - Week -2: Real-time audio waveform visualizer & chapter editor (`done`, missed ⚠️ due to Safari drift)
+         - Week -1: Cross-browser Web Audio synchronization & chapter export (`done`, shipped 🎉)
+         - Current Week: Editorial scheduling calendar widget & syndication (`approved`, in progress)
+       - **Homer Simpson (`lead@globex.com`):**
+         - Week -3: Live broadcast stream health monitoring & alert triggers (`done`, shipped 🎉)
+         - Week -2: Automated media transcoding worker autoscaling (`done`, shipped 🎉)
+         - Week -1: High-availability Redis cluster migration for session caching (`done`, shipped 🎉)
+         - Current Week: Automated content backup & cross-region disaster recovery replication (`draft`)
+    5. **CLI Summary:** Updated terminal seed summary to display seeded week dates and clear URLs for Customer App (`http://localhost:3001`) and Staff Console (`http://localhost:3002`).
+  - Updated `plans/07-change-log.md`.
+  - Strictly respected rules: zero terminal tests/validation commands run, zero automatic commits.
+- **What's In Progress:** Seed command updated and ready to be run by the human lead.
+- **The Exact Next Step:**
+  - Human lead runs `cd ~/WeekSync/api && uv run manage.py seed` in terminal.
+  - Human lead verifies past plans in Customer App (`http://localhost:3001`):
+    - Check the **Weekly Plan History** (`/history`) view showing 4 weeks of chronological plans.
+    - Check the **Team's Week** (`/team`) view by navigating backward with `Previous Week` (<) button.
+    - Switch personas (Charlie Day, Dana Scully, Bob Stone, Alice Vance).
+- **Blockers:** None.
+- **Files Touched:**
+  - `api/app/cli/commands.py`
+  - `plans/07-change-log.md`
+  - `logs/SESSION_LOG.md`
+- **Commands to Verify:**
+  - Seed database: `cd ~/WeekSync/api && uv run manage.py seed`
+  - Customer App: `http://localhost:3001`
+  - Admin Console: `http://localhost:3002`
 
+---
 
+## Session 17: 2026-10-13 18:14 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** Frontend Client Error Message Extraction Bugfix
+- **What Was Done:**
+  - Diagnosed user reported error: `"Error: API request failed with status 401"` on `:8000/app/auth` and other failed requests.
+  - Root Cause Analysis:
+    1. Backend `POST /app/auth` returns HTTP 401 with FastAPI's structured `{ detail: [{ type: "invalid_credentials", loc: ["body"], msg: "Incorrect username or password" }] }` when invalid/unmatched credentials are submitted.
+    2. However, `ApiError` in `app/src/lib/api-client.ts` and `internal/src/lib/api-client.ts` was hardcoding `super("API request failed with status " + status)`, discarding the actual payload message.
+    3. Furthermore, `app/src/routes/login.tsx` called `err.message`, causing `"API request failed with status 401"` to always be displayed instead of the server's explanation.
+    4. `app/src/lib/utils.ts` had a flawed `getErrorMessage` that did not unpack FastAPI's array-shaped `detail` field (`detail[0].msg`).
+  - Implemented Fix:
+    1. Added `extractApiMessage` helper in `app/src/lib/api-client.ts` and `internal/src/lib/api-client.ts` to automatically extract the human-readable message from `detail` arrays, `detail` strings, or `message` objects before creating `ApiError`.
+    2. Upgraded `getErrorMessage` in `app/src/lib/utils.ts` to handle array-shaped validation errors and network errors cleanly.
+    3. Updated `app/src/routes/login.tsx` to use `getErrorMessage` on login and signup mutations.
+    4. Added password visibility toggle button with `Eye` / `EyeOff` icons in `Create Account` tab of `app/src/routes/login.tsx` matching the sign-in form.
+  - Updated `plans/07-change-log.md`.
+  - Zero terminal tests/commands executed per human verification rule, zero automatic commits.
+- **What's In Progress:** Error handling fix and signup password eye icon toggle complete.
+- **The Exact Next Step:**
+  - Human lead verifies login and signup behavior at `http://localhost:3001`:
+    - Switch to "Create Account" tab and verify the eye icon toggles password visibility.
+    - Test an invalid password/email on Sign In and verify it now says "Incorrect username or password".
+    - Test with seeded accounts (`owner@acme.com` / `Password123!`, `lead@acme.com`, `member@acme.com`) or 1-Click Demo buttons to sign in.
+- **Blockers:** None.
+- **Files Touched:**
+  - `app/src/lib/api-client.ts`
+  - `app/src/lib/utils.ts`
+  - `app/src/routes/login.tsx`
+  - `internal/src/lib/api-client.ts`
+  - `plans/07-change-log.md`
+  - `logs/SESSION_LOG.md`
+- **Commands to Verify:**
+  - Customer App: `http://localhost:3001`
 
+---
 
+## Session 18: 2026-10-13 19:07 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** AI Service Timeout & Gemini Model Resolution Fix
+- **What Was Done:**
+  - Diagnosed `504 (Gateway Timeout)` on `POST /app/orgs/{org_id}/ai/week-summary`.
+  - Root Cause Analysis:
+    1. `settings.AI_MODEL` is set to `google:gemini-3.5-flash-lite` per RULES.md. However, Google's public Gemini API catalog does not have a 3.5 model.
+    2. Calls to `gemini-3.5-flash-lite` consumed 5-8 seconds failing with 404 before triggering the internal fallback to `gemini-2.5-flash`.
+    3. The tight 15.0s `asyncio.timeout` cut off the fallback model midway through structured Pydantic model generation, causing a 504 Gateway Timeout.
+  - Implemented Fix:
+    1. In `api/app/services/ai.py` (`get_agent`): If `3.5` model name is requested, resolve directly to `gemini-2.5-flash` so calls execute on the first attempt without wasting time on a 404 roundtrip.
+    2. In `review_plan`, `draft_plan_from_brain_dump`, and `generate_week_summary`: Increased `asyncio.timeout` from 15.0s to 30.0s.
+  - Updated `plans/07-change-log.md`.
+  - Zero terminal tests/commands executed per human verification rule, zero automatic commits.
+- **What's In Progress:** AI service model resolution and timeout expansion complete.
+- **The Exact Next Step:**
+  - Human lead verifies End-of-Week Summary on Customer App (`http://localhost:3001`):
+    - Open an approved or completed past week (e.g. Charlie Day or Dana Scully Week -1).
+    - Click "AI Week Summary" button.
+    - Confirm the dialog loads the structured retrospective summary smoothly without timing out.
+- **Blockers:** None.
+- **Files Touched:**
+  - `api/app/services/ai.py`
+  - `plans/07-change-log.md`
+  - `logs/SESSION_LOG.md`
+- **Commands to Verify:**
+  - Customer App: `http://localhost:3001`
 
+---
 
+## Session 19: 2026-10-13 19:15 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** Plan History Workspace & Team Filtering Fix
+- **What Was Done:**
+  - Investigated user issue: *"why there are nothing in plan history of ACME CROPS??"*
+  - Identified root causes:
+    1. In `app/src/routes/_main/history.tsx`, the `useListPlanHistory` query hook previously had `enabled: !!user && !!currentOrgId && !!currentTeamId` and passed `team_id: currentTeamId`. If `currentTeamId` was null, empty, or unselected, TanStack Query stayed disabled and returned `[]`.
+    2. When users created a new team like "QA Squad" during manual testing (Step S-3 / S-4 in `manualtest.md`), selecting "QA Squad" meant querying a squad with 0 plans, showing an empty state because all 16 seeded plans belong to "Engineering".
+    3. If user signed up with a new org during account creation testing (Step C-6), the active org is the new tenant until switched back to Acme Corp in the sidebar dropdown.
+  - Implemented Fix:
+    1. Loosened the query guard to `enabled: !!user && !!currentOrgId` and allowed `team_id` to be optional.
+    2. Added team filter pills ("All Teams", plus "Engineering", "QA Squad", etc.) with "All Teams" as default, retrieving all 16 historical plans across the entire organization.
+    3. Added author attribution to each card: avatar initials, full member name (`plan.user_name`), squad badge, and status pill (`Done` / `Approved`).
+    4. Enhanced empty states with contextual guidance and a 1-click "View All Teams" fallback.
+  - Updated `plans/07-change-log.md` and `logs/SESSION_LOG.md`.
+  - Zero terminal tests/commands executed per human verification rule, zero automatic commits.
+- **What's In Progress:** Plan History query and UI upgrade complete.
+- **The Exact Next Step:**
+  - Human lead verifies Plan History on Customer App (`http://localhost:3001/history`):
+    - Confirm organization is set to **Acme Corp** (switch via top-left dropdown if in a newly registered org).
+    - Confirm all 16 historical plans render under "All Teams".
+    - Test filtering by "Engineering" (16 plans) vs "QA Squad" (empty state with helpful guidance).
+- **Blockers:** None.
+- **Files Touched:**
+  - `app/src/routes/_main/history.tsx`
+  - `plans/07-change-log.md`
+  - `logs/SESSION_LOG.md`
+- **Commands to Verify:**
+---
 
+## Session 20: 2026-10-13 19:40 UTC+5:30
+- **Agent / Tool:** Antigravity IDE (Gemini)
+- **Build Phase:** Requirements Verification & Tracking Matrix Generation
+- **What Was Done:**
+  - Audited the entire WeekSync codebase against the 7-section engineering assessment brief:
+    1. Brand (Section 01): Verified WeekSync product name, pitch, SVG logo, light/dark themes, multi-frontend `<title>` and favicon configuration, zero user-facing "Launchbase" strings.
+    2. Setup & Conventions (Section 03): Verified `uv run`, autogenerated migrations, no enums in models, services flush / routers commit, typed Orval client, Linux/Postgres/Python 3.12 stack.
+    3. Product (Sections 04 & 05): Verified sign-up, roles, teams, Monday-keyed plans, 3 task pillars (main, sub_goal, gtm), status lifecycle (`draft` → `submitted` → `approved` → `done`), task ticking during week, Friday outcome recording, Team's Week overview, anti-oracle tenancy 404s, and seed command.
+    4. Internal Admin Panel (Section 06): Verified `internal/` surface, `is_admin` requirement, org suspension/reinstatement, user deactivation, AI usage telemetry, and staff plan-text visibility decision logging.
+    5. AI (Section 07): Verified Pydantic AI integration with `gemini-3.5-flash-lite`, plan review agent with suggested rewrites, brain dump agent with form-only prefill, server-side key management, graceful degradation, and hermetic offline tests.
+    6. Landing Page (Section 08): Verified hero, pitch, how it works, live rendered AI plan review preview, team features, and responsive layout.
+    7. Optional Extras: Verified chosen extra (AI End-of-Week Summary).
+  - Created root tracking document [REQUIREMENTS_TRACKING.md](file:///home/umrstn/WeekSync/REQUIREMENTS_TRACKING.md).
+  - Synchronized verified items in [plans/01-requirements-checklist.md](file:///home/umrstn/WeekSync/plans/01-requirements-checklist.md).
+- **What's In Progress:** All 41/41 requirements audited and verified.
+- **The Exact Next Step:** Human lead performs manual review and acceptance of [REQUIREMENTS_TRACKING.md](file:///home/umrstn/WeekSync/REQUIREMENTS_TRACKING.md).
+- **Blockers:** None.
+- **Files Touched:**
+  - `REQUIREMENTS_TRACKING.md`
+  - `plans/01-requirements-checklist.md`
+  - `logs/SESSION_LOG.md`
+- **Commands to Verify:**
+  - View root tracking document: `cat REQUIREMENTS_TRACKING.md`

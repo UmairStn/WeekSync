@@ -258,7 +258,68 @@
   - `cd ~/WeekSync/api && uv run pytest -v tests/api/app/test_ai.py`
   - Verify in Customer App (`http://localhost:3001`): Open an approved plan, click "AI Week Summary", view retrospective modal.
 
+---
 
+## [2026-10-13 17:50] [Antigravity IDE] Phase 6: Seed CLI Expansion (Past 3 Weeks + Current Week)
+- What changed:
+  - Updated `api/app/cli/commands.py` inside `seed()` command:
+    - Added team membership for organization owners (`acme_owner` to `acme_eng`, `globex_owner` to `globex_dev`).
+    - Computed Monday dates for 4 weeks: `three_weeks_ago` (-21 days), `two_weeks_ago` (-14 days), `last_monday` (-7 days), and `this_monday` (0 days).
+    - Seeded diverse, realistic weekly plans across all 4 weeks for Acme Corp (`acme_member` Charlie Day, `acme_designer` Dana Scully, `acme_lead` Bob Stone, `acme_owner` Alice Vance) and Globex Media (`globex_member` Carl Carlson, `globex_lead` Homer Simpson).
+    - Diverse domain tasks covering authentication, billing, design tokens, CI/CD, mobile responsiveness, Friday celebration retros, security review packages, media transcoding, audio synchronization, and high-availability Redis clustering.
+    - Varied realistic plan statuses: completed & shipped, completed & missed (with retrospective comments), lead-approved, submitted awaiting review, and draft.
+    - Updated CLI success output with date breakdown and accurate ports (port 3001 for Customer App, port 3002 for Staff Admin Console).
+- Why: User requested plans for the past 3 weeks in `commands.py` with different things to seed historical weekly data across the platform.
+- How it works: `seed_plan` is idempotent; runs UPSERT query on `(user_id, week_start_date)` and replaces tasks so repeated `uv run manage.py seed` runs refresh or create plans cleanly without unique constraint collisions.
+- Core file touched? no
+- How to verify:
+  - Run `uv run manage.py seed` in `api/`
+  - In Customer App (`http://localhost:3001`), navigate between past weeks or open History (`/history`) to inspect past 3 weeks of commitments.
 
+---
 
+## [2026-10-13 18:12] [Antigravity IDE] Frontend Error Handling & Structured Message Extraction Fix
+- What changed:
+  - Updated `app/src/lib/api-client.ts` and `internal/src/lib/api-client.ts`: Added `extractApiMessage` helper in `ApiError` constructor so `error.message` automatically unpacks FastAPI's structured `{ detail: [{ msg, loc, type }] }` array, string `detail`, and `message` properties rather than hardcoding the generic fallback `"API request failed with status ${status}"`.
+  - Updated `app/src/lib/utils.ts`: Upgraded `getErrorMessage` to cleanly parse FastAPI validation error arrays (`detail[0].msg`), string details, and network `TypeError`s with clean fallbacks.
+  - Updated `app/src/routes/login.tsx`: Replaced hardcoded `err.message` references in `loginMutation` and `signupMutation` with `getErrorMessage`, allowing human-friendly server messages (e.g. "Incorrect username or password", "A user with this email already exists") to be surfaced in the UI error banner.
+- Why: Fixes issue where all API errors displayed the identical cryptic message `"Error: API request failed with status 401"` instead of explaining the actual root cause.
+- How it works: Server errors returned in FastAPI's `{ detail: [...] }` format are unwrapped directly by `ApiError` and `getErrorMessage` before reaching UI error state.
+- Core file touched? no (frontend client utilities only)
+- How to verify:
+  - Navigate to `http://localhost:3001/login`
+  - Enter wrong password or unregistered email -> verify banner says "Incorrect username or password" instead of "API request failed with status 401"
+  - Switch to "Create Account" tab -> verify the password input has the eye toggle icon to show/hide password
+  - Sign in with seeded credentials (`owner@acme.com` / `Password123!`) -> verify login succeeds smoothly.
 
+---
+
+## [2026-10-13 19:05] [Antigravity IDE] AI Service Gemini Model Resolution & Timeout Fix (504 Gateway Timeout)
+- What changed:
+  - Updated `api/app/services/ai.py`:
+    1. In `get_agent`: Resolved the specification placeholder `gemini-3.5-flash-lite` directly to the active `gemini-2.5-flash` model so API requests execute immediately on the first attempt without burning 5-8 seconds on a guaranteed Google API 404 roundtrip.
+    2. In `review_plan`, `draft_plan_from_brain_dump`, and `generate_week_summary`: Increased `asyncio.timeout` from 15.0 seconds to 30.0 seconds, providing sufficient headroom for full structured LLM response generation over public network connections.
+- Why: Fixes `504 Gateway Timeout` (`AI_TIMEOUT`) when generating AI End-of-Week Summaries (`POST /orgs/{org_id}/ai/week-summary`).
+- How it works: Eliminates the 404 delay from the non-existent 3.5 model catalog name and extends execution timeout to 30s.
+- Core file touched? no (preserves model config and settings interfaces)
+- How to verify:
+  - Open an approved/completed plan on `http://localhost:3001` (e.g. Charlie Day or Dana Scully past weeks)
+  - Click "AI Week Summary"
+  - Verify the summary modal loads within 4-7 seconds with headline, shipped items, and carryover advice.
+
+---
+
+## [2026-10-13 19:15] [Antigravity IDE] Plan History Team Filter & Organization Archive Fallback
+- What changed:
+  - Updated `app/src/routes/_main/history.tsx`:
+    1. Removed rigid requirement on `currentTeamId` in query enablement (`enabled: !!user && !!currentOrgId`), preventing history from silently breaking when `currentTeamId` is empty or transitioning.
+    2. Added team filter pills (`All Teams`, plus each team in the organization like `Engineering`, `QA Squad`) defaulting to `"all"`, allowing users to view organization-wide history or drill down into specific squads.
+    3. Added member attribution to each historical plan card: avatar initials, full name (`plan.user_name`), team badge, and status pill supporting `done` / `approved`.
+    4. Enhanced empty states with contextual advice and a 1-click "View All Teams" button when an empty newly created squad is selected.
+- Why: Fixes issue where `/history` showed "No historical plans found" if a newly created empty team (such as "QA Squad") was active in the workspace or if team selection was pending.
+- How it works: Passes `undefined` for `team_id` when "All Teams" is selected, letting the backend return all 16 historical plans for Acme Corp.
+- Core file touched? no (presentation layer only)
+- How to verify:
+  - Open `http://localhost:3001/history` as an Acme Corp user.
+  - Verify all 16 chronological plans render across all 4 weeks.
+  - Click team filter pills ("All Teams", "Engineering", "QA Squad") to filter by squad.

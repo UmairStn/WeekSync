@@ -11,6 +11,38 @@ if (!apiUrl) {
 
 const baseURL = `${apiUrl}/app`;
 
+function extractApiMessage(data: unknown, status: number): string {
+  if (typeof data === "object" && data !== null) {
+    const obj = data as Record<string, unknown>;
+    const detail = obj["detail"];
+    if (Array.isArray(detail) && detail.length > 0) {
+      const first = detail[0];
+      if (
+        typeof first === "object" &&
+        first !== null &&
+        "msg" in first &&
+        typeof (first as { msg: unknown })["msg"] === "string"
+      ) {
+        return (first as { msg: string })["msg"];
+      }
+      if (typeof first === "string" && first.length > 0) {
+        return first;
+      }
+    }
+    if (typeof detail === "string" && detail.length > 0) {
+      return detail;
+    }
+    const message = obj["message"];
+    if (typeof message === "string" && message.length > 0) {
+      return message;
+    }
+  }
+  if (status === 401) {
+    return "Incorrect username or password";
+  }
+  return `API request failed with status ${status}`;
+}
+
 // Error thrown for non-2xx responses: HTTP `status` and the parsed response
 // `data`. Network failures (no response) surface as the native fetch
 // `TypeError` instead.
@@ -20,7 +52,7 @@ export class ApiError<TData = unknown> extends Error {
     public statusText: string,
     public data: TData
   ) {
-    super(`API request failed with status ${status}`);
+    super(extractApiMessage(data, status));
     this.name = "ApiError";
   }
 }

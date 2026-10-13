@@ -48,7 +48,8 @@ WeekSync/
 │   └── package.json
 │
 ├── branding/             # Canonical SVG marks, wordmarks, banners, and favicons
-├── plans/                # Architecture specifications, decisions, checklists
+├── plans/                # Phased master roadmap and milestone build plan
+├── docs/                 # Architecture specifications, decisions, data models, checklists
 ├── logs/                 # Operational session logs, hours tracker, change journals
 ├── .agents/skills/       # Agent skills for UI, design taste, and enforcement
 ├── RULES.md              # Unbreakable constraints for all development agents
@@ -125,4 +126,3 @@ Per **RULES.md § 1**, agents must never replace or refactor protected core syst
    - `users.py`: `GET /internal/users` (search by email/name, includes organization memberships), `POST /internal/users/{id}/deactivate`, `POST /internal/users/{id}/reactivate`.
    - `ai_usage.py`: `GET /internal/ai-usage` (platform totals, per-org aggregates, and recent call logs from `AICallLog`).
 4. In accordance with Decision 1, no endpoint in `/internal` exposes customer plan text or task details.
-

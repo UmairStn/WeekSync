@@ -84,15 +84,15 @@ All passwords are `Password123!`.
 
 | # | Test | Steps | Expected Result | ✅/❌ | Notes |
 | :-- | :-- | :-- | :-- | :-- | :-- |
-| C-1 | Sign In (valid demo creds) | Open http://localhost:3001, select **Sign In**, enter `owner@acme.com` / `Password123!`, submit | Redirects to dashboard, logged in as Acme Owner | | |
-| C-2 | Sign In (bad password) | Enter correct email + wrong password | Clean error "Incorrect username or password" (or generic), no crash | | |
-| C-3 | Form validation (sign in) | Submit empty / malformed email | Inline field errors, submit blocked | | |
-| C-4 | Password reveal toggle | Click the eye icon on password field | Password toggles between masked and visible | | |
-| C-5 | Switch to Create Account tab | Click "Create Account" tab | Sign-up form appears with First/Last name, email, password (min 8), org mode toggle | | |
-| C-6 | Sign-up — Create Org mode | Select "Create Org", pick org name, submit a new unique email + `Password123!` | Account created, auto-owner, redirected to dashboard | | |
-| C-7 | Sign-up validation | Submit sign-up with <8 char password / missing org name / missing name fields | Inline validation errors shown | | |
-| C-8 | Sign-up — Join via Invite mode | (Create an invite token first — see Settings section) Then in "Join via Invite" tab, paste the token | User joins the target organization with the invite's role | | |
-| C-9 | Duplicate email on sign-up | Attempt sign-up with an already-existing email | Clean error, not a crash | | |
+| C-1 | Sign In (valid demo creds) | Open http://localhost:3001, select **Sign In**, enter `owner@acme.com` / `Password123!`, submit | Redirects to dashboard, logged in as Acme Owner |✅| |
+| C-2 | Sign In (bad password) | Enter correct email + wrong password | Clean error "Incorrect username or password" (or generic), no crash |✅|need fix the error message|
+| C-3 | Form validation (sign in) | Submit empty / malformed email | Inline field errors, submit blocked |✅| |
+| C-4 | Password reveal toggle | Click the eye icon on password field | Password toggles between masked and visible |✅| |
+| C-5 | Switch to Create Account tab | Click "Create Account" tab | Sign-up form appears with First/Last name, email, password (min 8), org mode toggle |✅| |
+| C-6 | Sign-up — Create Org mode | Select "Create Org", pick org name, submit a new unique email + `Password123!` | Account created, auto-owner, redirected to dashboard | ✅| |
+| C-7 | Sign-up validation | Submit sign-up with <8 char password / missing org name / missing name fields | Inline validation errors shown | ✅| |
+| C-8 | Sign-up — Join via Invite mode | (Create an invite token first — see Settings section) Then in "Join via Invite" tab, paste the token | User joins the target organization with the invite's role | ✅| |
+| C-9 | Duplicate email on sign-up | Attempt sign-up with an already-existing email | Clean error, not a crash | ✅| |
 | C-10 | Sign-out | After signing in, find logout control | Clears session, returns to login; navigating to /dashboard redirects back to login | | |
 | C-11 | No team selected empty state | Sign in as a fresh user with no team (or a member with no team) | Dashboard shows a "No team selected" empty state with clear guidance (not a crash) | | |
 
@@ -104,18 +104,18 @@ All passwords are `Password123!`.
 
 | # | Test | Steps | Expected Result | ✅/❌ | Notes |
 | :-- | :-- | :-- | :-- | :-- | :-- |
-| S-1 | Settings header & org name | Navigate to **Settings** | Shows current org name (e.g. Acme Corp) in header | | |
-| S-2 | Teams list renders | View "Functional Teams" | Lists teams with member counts + lead assignment badge | | |
-| S-3 | Create team (owner/admin) | Click "New Team" → name "QA Squad", assign no lead → Create | Toast success; team appears in list | | |
-| S-4 | Create team with a lead | Create another team, select a member as lead | Team shows "Lead Assigned" | | |
-| S-5 | Create team validation | Attempt create with empty name | Error toast, no team created | | |
-| S-6 | Member roster renders | View "Organization Members" | All members of org with initial avatars and role pills | | |
-| S-7 | Update member role (owner only) | As owner, use the dropdown next to a non-self member (e.g. change designer to admin) | Role updates, pill/selection reflects new role | | |
-| S-8 | Cannot edit own role as self | Check that your own row does not allow role change from the dropdown (self-protection) | Your own member row shows a static role badge, no changing dropdown | | |
-| S-9 | Invite token generation (admin/owner) | Click "Generate Token", choose role (member/admin) → Generate | Toast success; a copyable token appears in the list | | |
-| S-10 | Copy token | Click "Copy" on a token | Clipboard contains token; button shows "Copied"; toast confirms | | |
-| S-11 | Non-admin cannot see invite section | (Optional) sign in as a plain member — check | Invite/team-management sections are hidden or gated for non-admins | | |
-| S-12 | Member role pill colors | Inspect owner/admin/member pills | Distinct status colors (owner green, admin secondary, member muted) | | |
+| S-1 | Settings header & org name | Navigate to **Settings** | Shows current org name (e.g. Acme Corp) in header | ✅| |
+| S-2 | Teams list renders | View "Functional Teams" | Lists teams with member counts + lead assignment badge |✅| |
+| S-3 | Create team (owner/admin) | Click "New Team" → name "QA Squad", assign no lead → Create | Toast success; team appears in list |✅ | |
+| S-4 | Create team with a lead | Create another team, select a member as lead | Team shows "Lead Assigned" | ✅| |
+| S-5 | Create team validation | Attempt create with empty name | Error toast, no team created | ✅| |
+| S-6 | Member roster renders | View "Organization Members" | All members of org with initial avatars and role pills | ✅| |
+| S-7 | Update member role (owner only) | As owner, use the dropdown next to a non-self member (e.g. change designer to admin) | Role updates, pill/selection reflects new role |✅ | |
+| S-8 | Cannot edit own role as self | Check that your own row does not allow role change from the dropdown (self-protection) | Your own member row shows a static role badge, no changing dropdown | ✅| |
+| S-9 | Invite token generation (admin/owner) | Click "Generate Token", choose role (member/admin) → Generate | Toast success; a copyable token appears in the list | ✅| |
+| S-10 | Copy token | Click "Copy" on a token | Clipboard contains token; button shows "Copied"; toast confirms | ✅| |
+| S-11 | Non-admin cannot see invite section | (Optional) sign in as a plain member — check | Invite/team-management sections are hidden or gated for non-admins | ✅| |
+| S-12 | Member role pill colors | Inspect owner/admin/member pills | Distinct status colors (owner green, admin secondary, member muted) | ✅| |
 
 ---
 

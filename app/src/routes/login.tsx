@@ -17,7 +17,7 @@ import {
   Target,
 } from "lucide-react";
 import { auth } from "@/api/endpoints/auth/auth";
-import { customInstance, ApiError } from "@/lib/api-client";
+import { customInstance } from "@/lib/api-client";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +29,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { cn } from "@/lib/utils";
+import { cn, getErrorMessage } from "@/lib/utils";
 
 const loginSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email address"),
@@ -114,6 +114,7 @@ function Login() {
   );
   const [authError, setAuthError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -147,11 +148,7 @@ function Login() {
       navigate({ to: "/dashboard" });
     },
     onError: (err: unknown) => {
-      if (err instanceof ApiError) {
-        setAuthError(err.message || "Invalid email or password");
-      } else {
-        setAuthError("Failed to authenticate. Please check your credentials.");
-      }
+      setAuthError(getErrorMessage(err, "Invalid email or password"));
     },
   });
 
@@ -181,11 +178,9 @@ function Login() {
       navigate({ to: "/dashboard" });
     },
     onError: (err: unknown) => {
-      if (err instanceof ApiError) {
-        setAuthError(err.message || "Failed to create account");
-      } else {
-        setAuthError("Sign up failed. Please check your details.");
-      }
+      setAuthError(
+        getErrorMessage(err, "Sign up failed. Please check your details.")
+      );
     },
   });
 
@@ -432,11 +427,29 @@ function Login() {
                         <div className="relative">
                           <Lock className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
                           <Input
-                            type="password"
+                            type={showSignupPassword ? "text" : "password"}
                             placeholder="••••••••"
-                            className="pl-9 text-xs h-9"
+                            className="pl-9 pr-9 text-xs h-9"
                             {...field}
                           />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowSignupPassword(!showSignupPassword)
+                            }
+                            className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                            aria-label={
+                              showSignupPassword
+                                ? "Hide password"
+                                : "Show password"
+                            }
+                          >
+                            {showSignupPassword ? (
+                              <EyeOff className="size-4" />
+                            ) : (
+                              <Eye className="size-4" />
+                            )}
+                          </button>
                         </div>
                       </FormControl>
                       <FormMessage className="text-[11px]" />

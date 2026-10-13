@@ -477,7 +477,7 @@ function WeeklyPlanPage() {
 
   // Calculate lifecycle stages
   const currentStatus = plan?.status ?? "draft";
-  const isApproved = currentStatus === "approved";
+  const isApproved = currentStatus === "approved" || currentStatus === "done";
   const isSubmitted = currentStatus === "submitted";
   const isSentBack = currentStatus === "sent_back";
 
@@ -654,7 +654,7 @@ function WeeklyPlanPage() {
             <div
               className={cn(
                 "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono font-medium transition-colors",
-                currentStatus === "approved"
+                currentStatus === "approved" || currentStatus === "done"
                   ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                   : "text-muted-foreground bg-muted/40"
               )}
@@ -662,7 +662,7 @@ function WeeklyPlanPage() {
               <span
                 className={cn(
                   "size-1.5 rounded-full",
-                  currentStatus === "approved"
+                  currentStatus === "approved" || currentStatus === "done"
                     ? "bg-emerald-500"
                     : "bg-muted-foreground/40"
                 )}
